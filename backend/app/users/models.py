@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, TimestampMixin
@@ -36,3 +36,13 @@ class UserRole(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     role_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("roles.id"))
     role: Mapped[Role] = relationship(lazy="selectin")
+
+
+class UserProfile(Base, TimestampMixin):
+    __tablename__ = "user_profiles"
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    school_name: Mapped[str] = mapped_column(String(200), default="")
+    phone: Mapped[str] = mapped_column(String(30), default="")
+    province: Mapped[str] = mapped_column(String(100), default="")
+    education_levels: Mapped[list] = mapped_column(JSON, default=list)
+    subjects: Mapped[list] = mapped_column(JSON, default=list)

@@ -19,6 +19,7 @@ Brand Nalar Edu (pending TM/domain check) · managed Postgres, ID/SG region · i
 - [x] docker-compose (db, redis, minio, backend), .env.example, .gitignore
 - [x] Alembic + models (users, roles, user_roles, user_sessions); migration 0001 verified up/down on SQLite only
 - [x] Auth: register/login/refresh/logout/me, Argon2id, 15-min JWT, rotating refresh cookie with reuse detection, lockout (5 fails/15 min), DB-checked RBAC dependency
+- [x] Email verification + password reset (hashed single-use tokens, resets revoke sessions, no account enumeration), SMTP sender (console outbox when SMTP_HOST unset), in-process rate limiting, user profile GET/PUT; migration 0002
 - [ ] Frontend (Next.js) shell, CI, Celery worker
 
 ## Pending
@@ -26,7 +27,7 @@ Phases 3–10; remaining Phase 2 items above.
 
 ## Known bugs / gaps
 - Migration not yet run on PostgreSQL (none available here); run `alembic upgrade head` against Postgres in CI.
-- No CSRF token yet (cookie is SameSite=Lax, path-scoped to /auth); no email verification, password reset, rate limiting, MFA yet.
+- No CSRF token yet (cookie is SameSite=Lax, path-scoped to /auth); no MFA yet; rate limiter is in-process (move to Redis before multi-instance); email not tested against a real SMTP server; verification is not yet enforced for AI tool use.
 - Tests use SQLite; row-locking behaviour (FOR UPDATE) needs Postgres integration tests.
 
 ## Architecture decisions
@@ -36,10 +37,10 @@ See SPEC_02 §8 (AD-1…AD-11).
 None created.
 
 ## Testing status
-Backend: 10 tests pass locally (SQLite in-memory): health, auth flows, lockout, refresh reuse, RBAC. Docker Compose NOT yet run. Nothing else is claimed to work.
+Backend: 16 tests pass locally (SQLite in-memory): health, auth flows, lockout, refresh reuse, RBAC. Docker Compose NOT yet run. Nothing else is claimed to work.
 
 ## Deployment status
 Not deployed. No credentials configured (OpenAI, Midtrans, Xendit, cloud, domain all pending owner).
 
 ## Next development task
-After approval + answers to the unresolved decisions list (SPEC_03, end): Email verification + password reset, rate limiting, profiles/preferences, then Celery worker, CI (Postgres service) and Next.js shell.
+After approval + answers to the unresolved decisions list (SPEC_03, end): Next.js frontend shell (landing, register/login, dashboard), CI with Postgres service, Celery worker; then Phase 3/4 (provider layer, credit ledger).

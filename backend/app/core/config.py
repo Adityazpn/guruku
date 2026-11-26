@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     provider_key_master: str = ""  # master key for encrypting provider API keys at rest
     s3_endpoint: str = ""
     s3_bucket: str = "documents"
+    app_base_url: str = "http://localhost:3000"
+    smtp_host: str = ""  # empty => emails are only recorded in-process (dev/test)
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    mail_from: str = "no-reply@example.com"
+    rate_limit_enabled: bool = True
 
 
 @lru_cache

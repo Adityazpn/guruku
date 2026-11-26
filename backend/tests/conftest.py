@@ -7,6 +7,8 @@ from sqlalchemy.pool import StaticPool
 import app.auth.models  # noqa: F401  (register tables)
 import app.users.models  # noqa: F401
 from app.core.db import Base, get_db
+from app.core import email as mailer
+from app.core import rate_limit as rl
 from main import app
 
 
@@ -22,6 +24,8 @@ def db_session():
 
 @pytest.fixture
 def client(db_session):
+    rl.reset()
+    mailer.outbox.clear()
     def override():
         yield db_session
 

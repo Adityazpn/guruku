@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.models import UserSession
+from app.auth.models import EmailToken, UserSession
+from app.core.config import get_settings
+from app.core.email import send_email
 from app.core.db import utcnow
 from app.core.security import (
     REFRESH_TTL,
@@ -51,6 +53,7 @@ def register(db: Session, email: str, password: str, full_name: str) -> User:
     db.flush()
     user.roles.append(UserRole(user_id=user.id, role=get_or_create_role(db, "user")))
     db.commit()
+    send_verification(db, user)
     return user
 
 
@@ -121,3 +124,66 @@ def logout(db: Session, raw_token: str | None) -> None:
     if sess and sess.revoked_at is None:
         sess.revoked_at = utcnow()
         db.commit()
+
+
+VERIFY_TTL = timedelta(hours=24)
+RESET_TTL = timedelta(hours=1)
+
+
+def _make_token(db: Session, user: User, purpose: str, ttl: timedelta) -> str:
+    # invalidate earlier unused tokens of the same purpose
+    for t in db.scalars(
+        select(EmailToken).where(
+            EmailToken.user_id == user.id, EmailToken.purpose == purpose, EmailToken.used_at.is_(None)
+        )
+    ):
+        t.used_at = utcnow()
+    raw, hashed = new_refresh_token()
+    db.add(EmailToken(user_id=user.id, purpose=purpose, token_hash=hashed, expires_at=utcnow() + ttl))
+    db.commit()
+    return raw
+
+
+def _consume(db: Session, raw: str, purpose: str) -> User:
+    t = db.scalar(
+        select(EmailToken).where(EmailToken.token_hash == hash_token(raw), EmailToken.purpose == purpose).with_for_update()
+    )
+    if not t or t.used_at is not None or _aware(t.expires_at) <= utcnow():
+        raise AuthError("invalid_token", 400)
+    user = db.get(User, t.user_id)
+    if not user:
+        raise AuthError("invalid_token", 400)
+    t.used_at = utcnow()
+    return user
+
+
+def send_verification(db: Session, user: User) -> None:
+    raw = _make_token(db, user, "verify", VERIFY_TTL)
+    link = f"{get_settings().app_base_url}/verify-email?token={raw}"
+    send_email(user.email, "Verifikasi email Anda", f"Klik tautan berikut untuk memverifikasi email:\n{link}\n\nTautan berlaku 24 jam.")
+
+
+def verify_email(db: Session, raw: str) -> None:
+    user = _consume(db, raw, "verify")
+    user.email_verified_at = user.email_verified_at or utcnow()
+    db.commit()
+
+
+def forgot_password(db: Session, email: str) -> None:
+    """Always returns silently so callers cannot learn which emails exist."""
+    user = db.scalar(select(User).where(User.email == email.lower()))
+    if not user or user.status != "active":
+        return
+    raw = _make_token(db, user, "reset", RESET_TTL)
+    link = f"{get_settings().app_base_url}/reset-password?token={raw}"
+    send_email(user.email, "Atur ulang kata sandi", f"Klik tautan berikut untuk mengatur ulang kata sandi:\n{link}\n\nTautan berlaku 1 jam. Abaikan jika bukan Anda yang meminta.")
+
+
+def reset_password(db: Session, raw: str, new_password: str) -> None:
+    user = _consume(db, raw, "reset")
+    user.password_hash = hash_password(new_password)
+    user.failed_login_count = 0
+    user.locked_until = None
+    for s in db.scalars(select(UserSession).where(UserSession.user_id == user.id)):
+        s.revoked_at = s.revoked_at or utcnow()
+    db.commit()
