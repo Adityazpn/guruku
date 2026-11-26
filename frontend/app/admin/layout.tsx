@@ -5,14 +5,14 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV: [string, string, boolean][] = [["Ringkasan", "/admin", false], ["Provider AI", "/admin/providers", false],
-  ["Alat & Prompt", "/admin/tools", false], ["Pengguna & Kredit", "/admin/users", true], ["Audit", "/admin/audit", true]];
+  ["Alat & Prompt", "/admin/tools", false], ["Pustaka", "/admin/library", false], ["Pengguna & Kredit", "/admin/users", true], ["Audit", "/admin/audit", true]];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const path = usePathname();
   const roles = user?.roles ?? [];
-  const allowed = roles.includes("super_admin") || roles.includes("ai_admin");
+  const allowed = roles.includes("super_admin") || roles.includes("ai_admin") || roles.includes("content_admin");
   useEffect(() => {
     if (loading) return;
     if (!user) router.replace("/login"); else if (!allowed) router.replace("/app");
@@ -24,7 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="bg-navy text-white px-4 h-14 flex items-center gap-4 overflow-x-auto">
         <span className="font-bold">Admin</span>
         <nav className="flex gap-1 text-sm">
-          {NAV.filter(([, , rootOnly]) => root || !rootOnly).map(([l, h]) => (
+          {NAV.filter(([, h, rootOnly]) => (root || !rootOnly) && (roles.includes("super_admin") || roles.includes("ai_admin") || h === "/admin/library")).map(([l, h]) => (
             <Link key={h} href={h} className={`px-3 py-1.5 rounded-lg whitespace-nowrap ${path === h ? "bg-white/15" : "hover:bg-white/10"}`}>{l}</Link>
           ))}
         </nav>

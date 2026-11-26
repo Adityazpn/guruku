@@ -7,6 +7,7 @@ import app.auth.models  # noqa: F401
 import app.credits.models  # noqa: F401
 import app.credits.pricing_models  # noqa: F401
 import app.documents.models  # noqa: F401
+import app.library.models  # noqa: F401
 import app.payments.models  # noqa: F401
 import app.subscriptions.models  # noqa: F401
 import app.users.models  # noqa: F401

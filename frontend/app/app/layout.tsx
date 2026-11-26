@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const NAV = [
   ["Ringkasan", "/app"], ["Generator AI", "/app/tools"], ["Asisten AI", "#"], ["Perencanaan", "#"], ["Asesmen", "#"],
-  ["Administrasi", "#"], ["Analisis Siswa", "#"], ["Media Belajar", "#"], ["Pustaka", "#"],
+  ["Administrasi", "#"], ["Analisis Siswa", "#"], ["Media Belajar", "#"], ["Pustaka", "/app/library"],
   ["Dokumen Saya", "/app/documents"], ["Kredit AI", "/app/credits"], ["Langganan", "/app/subscription"], ["Pembayaran", "/app/payments"], ["Keamanan", "/app/security"], ["Profil", "#"],
 ];
 
@@ -15,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isAdmin = !!user && (user.roles.includes("super_admin") || user.roles.includes("ai_admin"));
+  const isAdmin = !!user && ["super_admin", "ai_admin", "content_admin"].some((r) => user.roles.includes(r));
 
   useEffect(() => { if (!loading && !user) router.replace("/login"); }, [loading, user, router]);
   if (loading || !user) return <p className="p-6 text-sm text-slate-600">Memuat…</p>;

@@ -61,3 +61,8 @@ export interface Order { order_no: string; kind: string; description: string; am
 export interface Invoice { number: string; description: string; amount_idr: number; status: string; issued_at: string }
 export interface Sub { active: boolean; plan_code?: string; plan_name?: string; cycle?: string; status?: string; period_end?: string; grace_until?: string | null; cancel_at_period_end?: boolean; credits_monthly?: string }
 export interface LedgerRow { id: string; type: string; amount: string; description: string; created_at: string; expires_at: string | null }
+
+export interface LibItem {
+  id: string; title: string; description: string; category: string; category_name: string; level: string; subject: string; tags: string[];
+  access: "free" | "premium"; is_sample: boolean; has_file: boolean; file_type: string | null; size: number | null; locked: boolean; status?: string; version?: number;
+}

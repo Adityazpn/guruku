@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = ""  # JWT signing; must be set outside development
     provider_key_master: str = ""  # master key for encrypting provider API keys at rest
+    storage_backend: str = "local"  # local | s3
+    storage_dir: str = "./storage"
     s3_endpoint: str = ""
     s3_bucket: str = "documents"
+    s3_region: str = "auto"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
     app_base_url: str = "http://localhost:3000"
     smtp_host: str = ""  # empty => emails are only recorded in-process (dev/test)
     smtp_port: int = 587

@@ -1,4 +1,4 @@
-import type { Invoice, LedgerRow, Order, Pack, Plan, Sub, DocFull, DocSummary, DocVersion, AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
+import type { LibItem, Invoice, LedgerRow, Order, Pack, Plan, Sub, DocFull, DocSummary, DocVersion, AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) {
@@ -36,6 +36,13 @@ const MESSAGES: Record<string, string> = {
   mfa_required: "Masukkan kode 6 digit dari aplikasi autentikator.",
   csrf_blocked: "Permintaan diblokir demi keamanan. Muat ulang halaman.",
   invalid_code: "Kode salah. Periksa jam perangkat Anda dan coba lagi.",
+  premium_required: "Materi ini khusus pelanggan. Berlangganan untuk mengunduh.",
+  no_file: "Berkas belum tersedia.",
+  file_type_not_allowed: "Jenis berkas tidak diizinkan (pdf, docx, pptx, xlsx, txt).",
+  file_content_mismatch: "Isi berkas tidak sesuai dengan ekstensinya.",
+  file_size_invalid: "Ukuran berkas tidak valid (maks. 25 MB).",
+  upload_a_file_before_publishing: "Unggah berkas sebelum mempublikasikan.",
+  unknown_category: "Kategori tidak dikenal.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
@@ -134,6 +141,25 @@ export const docsApi = {
   restore: (id: string, version: number) => send<DocFull>("POST", `/documents/${id}/restore`, { version }),
   export: (id: string, format: "docx" | "pdf", version?: number) => authedBlob(`/documents/${id}/export?format=${format}${version ? `&version=${version}` : ""}`),
   regenerate: (id: string, key: string) => authed<{ id: string; status: string }>(`/documents/${id}/regenerate`, { method: "POST", headers: { "Idempotency-Key": key } }),
+};
+
+export const lib = {
+  categories: () => authed<{ slug: string; name: string }[]>("/library/categories"),
+  items: (p: { q?: string; category?: string; page?: number }) => {
+    const qs = new URLSearchParams(Object.entries(p).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]));
+    return authed<{ total: number; items: LibItem[] }>(`/library/items?${qs}`);
+  },
+  download: (id: string) => authed<{ url: string; filename: string }>(`/library/items/${id}/download`, { method: "POST" }),
+  adminItems: () => authed<LibItem[]>("/admin/library/items"),
+  adminCreate: (b: Record<string, unknown>) => send<LibItem>("POST", "/admin/library/items", b),
+  adminPatch: (id: string, b: Record<string, unknown>) => send<LibItem>("PATCH", `/admin/library/items/${id}`, b),
+  adminUpload: async (id: string, file: File) => {
+    const fd = new FormData(); fd.append("file", file);
+    const go = () => { const h = new Headers({ "X-Requested-With": "fetch" }); if (accessToken) h.set("Authorization", `Bearer ${accessToken}`); return fetch(`/api/v1/admin/library/items/${id}/files`, { method: "POST", body: fd, headers: h }); };
+    let r = await go();
+    if (r.status === 401 && (await refreshSession())) r = await go();
+    return parse<LibItem>(r);
+  },
 };
 
 export const billing = {

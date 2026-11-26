@@ -11,6 +11,7 @@ import app.auth.models
 import app.credits.models
 import app.credits.pricing_models
 import app.documents.models
+import app.library.models
 import app.payments.models
 import app.subscriptions.models
 import app.users.models
