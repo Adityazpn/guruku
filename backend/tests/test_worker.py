@@ -21,7 +21,7 @@ def test_celery_is_configured_for_safe_redelivery_and_schedules_jobs():
     c = worker.celery_app.conf
     assert c.task_acks_late and c.task_reject_on_worker_lost and c.worker_prefetch_multiplier == 1
     tasks = {v["task"] for v in c.beat_schedule.values()}
-    assert tasks == {"credits.sweep_reservations", "credits.expire_buckets", "ai.recover_stuck"}
+    assert tasks == {"credits.sweep_reservations", "credits.expire_buckets", "ai.recover_stuck", "subscriptions.tick"}
 
 
 def submit(pg):

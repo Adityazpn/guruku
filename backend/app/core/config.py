@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     mail_from: str = "no-reply@example.com"
     rate_limit_enabled: bool = True
+    payment_gateway: str = "fake"  # fake (development only) | midtrans | xendit
+    midtrans_server_key: str = ""
+    midtrans_production: bool = False
+    xendit_secret_key: str = ""
+    xendit_callback_token: str = ""
+    fake_gateway_secret: str = "dev-only-fake-gateway-secret"
+    grace_days: int = 3
+    renewal_notice_days: int = 3
     queue_mode: str = "background"  # background (dev, in-process) | celery (production worker)
 
 

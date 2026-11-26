@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 const NAV = [
   ["Ringkasan", "/app"], ["Generator AI", "/app/tools"], ["Asisten AI", "#"], ["Perencanaan", "#"], ["Asesmen", "#"],
   ["Administrasi", "#"], ["Analisis Siswa", "#"], ["Media Belajar", "#"], ["Pustaka", "#"],
-  ["Dokumen Saya", "/app/documents"], ["Kredit AI", "#"], ["Langganan", "#"], ["Profil", "#"],
+  ["Dokumen Saya", "/app/documents"], ["Kredit AI", "/app/credits"], ["Langganan", "/app/subscription"], ["Pembayaran", "/app/payments"], ["Profil", "#"],
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

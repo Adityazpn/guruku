@@ -53,3 +53,10 @@ export interface Schema {
   type?: string; enum?: string[]; properties?: Record<string, Schema>; items?: Schema; required?: string[]; minItems?: number; minimum?: number;
 }
 export interface DocVersion { version: number; source: string; note: string; created_at: string }
+
+export interface Plan { code: string; name: string; description: string; credits_monthly: string; features: string[]; prices: { monthly?: number; annual?: number } }
+export interface Pack { id: string; name: string; credits: string; bonus_credits: string; price_idr: number; purchased_expiry_days: number | null; bonus_expiry_days: number }
+export interface Order { order_no: string; kind: string; description: string; amount_idr: number; status: "created" | "pending" | "paid" | "failed" | "expired"; checkout_url: string | null; paid: boolean; created_at: string }
+export interface Invoice { number: string; description: string; amount_idr: number; status: string; issued_at: string }
+export interface Sub { active: boolean; plan_code?: string; plan_name?: string; cycle?: string; status?: string; period_end?: string; grace_until?: string | null; cancel_at_period_end?: boolean; credits_monthly?: string }
+export interface LedgerRow { id: string; type: string; amount: string; description: string; created_at: string; expires_at: string | null }

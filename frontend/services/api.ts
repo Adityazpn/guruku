@@ -1,4 +1,4 @@
-import type { DocFull, DocSummary, DocVersion, AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
+import type { Invoice, LedgerRow, Order, Pack, Plan, Sub, DocFull, DocSummary, DocVersion, AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) {
@@ -29,6 +29,10 @@ const MESSAGES: Record<string, string> = {
   forbidden: "Anda tidak memiliki akses.",
   version_conflict: "Dokumen ini sudah diubah di tempat lain. Muat ulang halaman sebelum menyimpan.",
   not_found: "Dokumen tidak ditemukan.",
+  plan_not_available: "Paket ini tidak tersedia.",
+  package_not_available: "Paket kredit ini tidak tersedia.",
+  gateway_unavailable: "Layanan pembayaran sedang bermasalah. Anda belum ditagih; coba lagi nanti.",
+  idempotency_key_required: "Permintaan tidak valid. Muat ulang halaman.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
@@ -127,6 +131,29 @@ export const docsApi = {
   export: (id: string, format: "docx" | "pdf", version?: number) => authedBlob(`/documents/${id}/export?format=${format}${version ? `&version=${version}` : ""}`),
   regenerate: (id: string, key: string) => authed<{ id: string; status: string }>(`/documents/${id}/regenerate`, { method: "POST", headers: { "Idempotency-Key": key } }),
 };
+
+export const billing = {
+  plans: () => authedOrPublic<Plan[]>("/plans"),
+  packages: () => authedOrPublic<Pack[]>("/credit-packages"),
+  buyPlan: (plan_code: string, cycle: string, key: string) =>
+    authed<Order>("/checkout/subscription", { method: "POST", body: JSON.stringify({ plan_code, cycle }), headers: { "Idempotency-Key": key } }),
+  buyPack: (package_id: string, key: string) =>
+    authed<Order>("/checkout/credits", { method: "POST", body: JSON.stringify({ package_id }), headers: { "Idempotency-Key": key } }),
+  orders: () => authed<Order[]>("/orders"),
+  order: (no: string) => authed<Order>(`/orders/${encodeURIComponent(no)}`),
+  invoices: () => authed<Invoice[]>("/invoices"),
+  subscription: () => authed<Sub>("/subscription"),
+  cancel: () => authed<void>("/subscription/cancel", { method: "POST" }),
+  resume: () => authed<void>("/subscription/resume", { method: "POST" }),
+  ledger: (page = 1) => authed<{ items: LedgerRow[]; total: number }>(`/credits/ledger?page=${page}&page_size=25`),
+  devFakePay: (no: string, outcome: string) => authed<{ status: number }>(`/dev/fake-pay/${encodeURIComponent(no)}?outcome=${outcome}`, { method: "POST" }),
+};
+
+async function authedOrPublic<T>(path: string): Promise<T> {
+  return parse<T>(await raw(path));
+}
+
+export const rp = (n: number) => "Rp" + n.toLocaleString("id-ID");
 
 export const api = {
   async login(email: string, password: string) {

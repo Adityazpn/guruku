@@ -16,6 +16,7 @@ export default function Landing() {
         <nav className="max-w-6xl mx-auto flex items-center justify-between px-4 h-16">
           <span className="font-bold text-navy text-lg">Guruku</span>
           <div className="flex gap-3 text-sm">
+            <Link href="/pricing" className="px-3 py-2 text-navy">Harga</Link>
             <Link href="/login" className="px-3 py-2 text-navy">Masuk</Link>
             <Link href="/register" className="px-4 py-2 rounded-lg bg-navy text-white">Daftar</Link>
           </div>

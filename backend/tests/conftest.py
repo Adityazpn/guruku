@@ -11,6 +11,8 @@ import app.auth.models
 import app.credits.models
 import app.credits.pricing_models
 import app.documents.models
+import app.payments.models
+import app.subscriptions.models
 import app.users.models
 from app.core import email as mailer
 from app.core import rate_limit as rl

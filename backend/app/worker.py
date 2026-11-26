@@ -21,6 +21,7 @@ celery_app.conf.update(
     beat_schedule={
         "sweep-credit-reservations": {"task": "credits.sweep_reservations", "schedule": 60.0},
         "expire-credit-buckets": {"task": "credits.expire_buckets", "schedule": 3600.0},
+        "subscription-tick": {"task": "subscriptions.tick", "schedule": 900.0},
         "recover-stuck-ai-requests": {"task": "ai.recover_stuck", "schedule": 120.0},
     },
 )
@@ -65,3 +66,11 @@ def recover_stuck() -> dict:
 
     with _session() as db:
         return engine.recover_stuck(db, lambda rid: process_request.delay(str(rid)))
+
+
+@celery_app.task(name="subscriptions.tick")
+def subscription_tick() -> dict:
+    from app.subscriptions import service
+
+    with _session() as db:
+        return service.tick(db)
