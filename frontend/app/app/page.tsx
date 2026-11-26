@@ -1,11 +1,15 @@
 "use client";
 import { useAuth } from "@/hooks/useAuth";
 import { api, errorMessage } from "@/services/api";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import type { CreditSummary } from "@/types/api";
 
 export default function Overview() {
   const { user } = useAuth();
   const [msg, setMsg] = useState<string | null>(null);
+  const [credits, setCredits] = useState<CreditSummary | null>(null);
+  useEffect(() => { api.credits().then(setCredits).catch(() => setCredits(null)); }, []);
   if (!user) return null;
   return (
     <div className="max-w-4xl">
@@ -19,9 +23,16 @@ export default function Overview() {
           {msg && <span className="ml-2">{msg}</span>}
         </div>
       )}
-      <p className="mt-6 text-sm text-slate-600">
-        Alat AI, kredit, dan langganan akan tersedia pada tahap berikutnya. Menu yang belum aktif ditandai abu-abu.
-      </p>
+      <section className="mt-6 grid gap-3 sm:grid-cols-4" aria-label="Kredit">
+        {([["Total kredit", credits?.total], ["Langganan", credits?.subscription], ["Bonus", credits?.bonus], ["Dibeli", credits?.purchased]] as const).map(([l, v]) => (
+          <div key={l} className="rounded-xl border border-slate-200 p-4">
+            <div className="text-xs text-slate-500">{l}</div>
+            <div className="text-2xl font-semibold text-navy">{v ?? "–"}</div>
+          </div>
+        ))}
+      </section>
+      <Link href="/app/tools" className="inline-block mt-6 rounded-lg bg-navy text-white px-5 py-2.5 text-sm font-medium">Buka Generator AI</Link>
+      <p className="mt-6 text-sm text-slate-600">Menu abu-abu belum tersedia (segera hadir).</p>
     </div>
   );
 }

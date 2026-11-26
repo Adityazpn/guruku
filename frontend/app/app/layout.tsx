@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV = [
-  ["Ringkasan", "/app"], ["Generator AI", "#"], ["Asisten AI", "#"], ["Perencanaan", "#"], ["Asesmen", "#"],
+  ["Ringkasan", "/app"], ["Generator AI", "/app/tools"], ["Asisten AI", "#"], ["Perencanaan", "#"], ["Asesmen", "#"],
   ["Administrasi", "#"], ["Analisis Siswa", "#"], ["Media Belajar", "#"], ["Pustaka", "#"],
   ["Dokumen Saya", "#"], ["Kredit AI", "#"], ["Langganan", "#"], ["Profil", "#"],
 ];
@@ -13,6 +13,7 @@ const NAV = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   useEffect(() => { if (!loading && !user) router.replace("/login"); }, [loading, user, router]);
@@ -26,7 +27,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {NAV.map(([label, href]) => (
             href === "#"
               ? <span key={label} className="block px-3 py-2 rounded-lg text-white/50 cursor-not-allowed" title="Segera hadir">{label}</span>
-              : <Link key={label} href={href} className="block px-3 py-2 rounded-lg bg-white/10">{label}</Link>
+              : <Link key={label} href={href} className={`block px-3 py-2 rounded-lg ${pathname === href || (href !== "/app" && pathname.startsWith(href)) ? "bg-white/15" : "hover:bg-white/10"}`}>{label}</Link>
           ))}
         </nav>
       </aside>

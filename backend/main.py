@@ -1,5 +1,6 @@
 from fastapi import APIRouter, FastAPI
 
+import app.models  # noqa: F401
 from app.auth.router import me_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings

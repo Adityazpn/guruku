@@ -1,5 +1,6 @@
 """Deterministic provider for development and tests. Behaviour is scripted per call via `script`."""
 import json
+import os
 
 from app.ai_providers.base import LLMRequest, LLMResponse
 
@@ -14,7 +15,7 @@ class FakeProvider:
 
     def generate(self, req: LLMRequest) -> LLMResponse:
         FakeProvider.calls.append(req)
-        item = FakeProvider.script.pop(0) if FakeProvider.script else json.dumps({"ok": True})
+        item = FakeProvider.script.pop(0) if FakeProvider.script else os.environ.get("FAKE_PROVIDER_REPLY") or json.dumps({"ok": True})
         if isinstance(item, Exception):
             raise item
         if isinstance(item, LLMResponse):

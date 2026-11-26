@@ -3,6 +3,7 @@
 import json
 import time
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 import jsonschema
@@ -169,8 +170,6 @@ def process(db: Session, request_id: uuid.UUID, sleep=time.sleep) -> AiRequest:
     req = db.get(AiRequest, request_id)
     if claimed.rowcount != 1:  # someone else owns it, or it already finished
         return req
-    tool = db.get(AiTool, req.tool_id)
-    version = db.get(AiPromptVersion, req.prompt_version_id)
     acc = _Acc()
     last_err: ProviderError | None = None
     result: dict | None = None
@@ -178,6 +177,9 @@ def process(db: Session, request_id: uuid.UUID, sleep=time.sleep) -> AiRequest:
     now = utcnow()
 
     try:
+        # everything after the claim is inside the handler: any error must release the held credits
+        tool = db.get(AiTool, req.tool_id)
+        version = db.get(AiPromptVersion, req.prompt_version_id)
         user_prompt = _render(version, req.input)
         for model, provider in _candidates(db, tool):
             if not _spend_ok(db, provider, now):
@@ -224,7 +226,7 @@ def process(db: Session, request_id: uuid.UUID, sleep=time.sleep) -> AiRequest:
     except Exception as e:  # noqa: BLE001  -> whatever went wrong, the held credits must be released
         return _fail(db, req, e, acc, started)
 
-    return _succeed(db, req, tool, result, acc, started)
+    return _succeed(db, req, tool, result, acc, started)  # noqa: F821
 
 
 def _record_usage_cost(db, req, acc: _Acc, started):
@@ -270,3 +272,27 @@ def _fail(db, req, err, acc, started):
     req.credits_charged, req.finished_at = Decimal(0), utcnow()
     db.commit()
     return req
+
+
+def recover_stuck(db: Session, redispatch, *, queued_after=timedelta(minutes=2), running_after=timedelta(minutes=10),
+                  max_attempts: int = 2) -> dict:
+    """Heal jobs lost to a crashed worker or a Redis outage.
+    queued too long  -> dispatch again (the message was probably never delivered).
+    running too long -> back to queued once; after max_attempts, fail the request and release its credits."""
+    now = utcnow()
+    out = {"redispatched": 0, "failed": 0}
+    for r in db.scalars(select(AiRequest).where(AiRequest.status == "queued", AiRequest.created_at <= now - queued_after)):
+        redispatch(r.id)
+        out["redispatched"] += 1
+    for r in db.scalars(select(AiRequest).where(AiRequest.status == "running", AiRequest.started_at <= now - running_after)):
+        if r.attempts >= max_attempts:
+            credits.release(db, r.reservation_id)
+            r.status, r.error_code, r.credits_charged, r.finished_at = "failed", "worker_lost", Decimal(0), now
+            out["failed"] += 1
+        else:
+            r.status = "queued"
+            db.flush()
+            redispatch(r.id)
+            out["redispatched"] += 1
+    db.commit()
+    return out

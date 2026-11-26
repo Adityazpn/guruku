@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -87,3 +87,30 @@ def get_request(request_id: uuid.UUID, user: User = Depends(get_current_user), d
     if not r or r.user_id != user.id:  # same answer for "missing" and "someone else's"
         raise HTTPException(404, "not_found")
     return _out(db, r, db.get(AiTool, r.tool_id).slug)
+
+
+_EXPORTS = {
+    "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"),
+    "pdf": ("application/pdf", "pdf"),
+}
+
+
+@router.get("/ai/requests/{request_id}/export")
+def export_request(request_id: uuid.UUID, format: str = Query("docx", pattern="^(docx|pdf)$"),
+                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Renders the stored AI output on demand. (Stored/versioned documents + signed S3 URLs come with the documents module.)"""
+    from app.documents.builders import build
+    from app.documents.render_docx import render_docx
+    from app.documents.render_pdf import render_pdf
+
+    r = db.get(AiRequest, request_id)
+    if not r or r.user_id != user.id:
+        raise HTTPException(404, "not_found")
+    if r.status != "succeeded" or not r.output:
+        raise HTTPException(409, "not_ready")
+    tool = db.get(AiTool, r.tool_id)
+    doc = build(tool.slug, tool.name, r.input, r.output)
+    data = render_docx(doc) if format == "docx" else render_pdf(doc)
+    mime, ext = _EXPORTS[format]
+    return Response(data, media_type=mime,
+                    headers={"Content-Disposition": f'attachment; filename="{tool.slug}-{str(r.id)[:8]}.{ext}"'})

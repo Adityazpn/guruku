@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     mail_from: str = "no-reply@example.com"
     rate_limit_enabled: bool = True
+    queue_mode: str = "background"  # background (dev, in-process) | celery (production worker)
 
 
 @lru_cache

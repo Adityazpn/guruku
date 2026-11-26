@@ -1,4 +1,4 @@
-import type { User } from "@/types/api";
+import type { AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) {
@@ -11,12 +11,26 @@ const MESSAGES: Record<string, string> = {
   account_locked: "Akun dikunci sementara karena terlalu banyak percobaan. Coba lagi dalam 15 menit.",
   account_disabled: "Akun tidak aktif.",
   email_taken: "Email sudah terdaftar.",
+  insufficient_credits: "Kredit tidak cukup. Tambah kredit atau tunggu alokasi bulan depan.",
+  invalid_input: "Isian belum lengkap atau tidak valid.",
+  pricing_missing: "Alat ini belum dikonfigurasi. Hubungi admin.",
+  no_model_available: "Layanan AI sedang tidak tersedia. Coba lagi nanti.",
+  tool_not_ready: "Alat ini belum siap digunakan.",
+  malformed_output: "AI tidak menghasilkan keluaran yang valid. Kredit Anda dikembalikan; silakan coba lagi.",
+  provider_unavailable: "Layanan AI sedang bermasalah. Kredit Anda dikembalikan.",
+  provider_timeout: "Layanan AI terlalu lama merespons. Kredit Anda dikembalikan.",
+  spend_limit: "Layanan AI sementara dibatasi. Kredit Anda dikembalikan.",
+  worker_lost: "Proses terhenti. Kredit Anda dikembalikan; silakan coba lagi.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
 
+export function messageFor(code: string | null): string {
+  return (code && MESSAGES[code]) || "Terjadi kesalahan. Coba lagi.";
+}
+
 export function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) return MESSAGES[e.code] ?? "Terjadi kesalahan. Coba lagi.";
+  if (e instanceof ApiError) return messageFor(e.code);
   return "Tidak dapat terhubung ke server.";
 }
 
@@ -55,6 +69,14 @@ export async function authed<T>(path: string, init: RequestInit = {}): Promise<T
   return parse<T>(r);
 }
 
+export async function authedBlob(path: string): Promise<{ blob: Blob; filename: string }> {
+  let r = await raw(path, {}, true);
+  if (r.status === 401 && (await refreshSession())) r = await raw(path, {}, true);
+  if (!r.ok) throw new ApiError(r.status, "download_failed");
+  const m = /filename="([^"]+)"/.exec(r.headers.get("Content-Disposition") ?? "");
+  return { blob: await r.blob(), filename: m?.[1] ?? "dokumen" };
+}
+
 const post = (path: string, body: unknown) => raw(path, { method: "POST", body: JSON.stringify(body) }).then(parse);
 
 export const api = {
@@ -71,5 +93,13 @@ export const api = {
     setAccessToken(null);
   },
   me: () => authed<User>("/me"),
+  credits: () => authed<CreditSummary>("/credits/summary"),
+  tools: () => authed<ToolSummary[]>("/tools"),
+  tool: (slug: string) => authed<ToolDetail>(`/tools/${slug}`),
+  estimate: (slug: string) => authed<Estimate>(`/tools/${slug}/estimate`, { method: "POST" }),
+  generate: (slug: string, input: Record<string, unknown>, key: string) =>
+    authed<AiRequest>(`/tools/${slug}/generate`, { method: "POST", body: JSON.stringify({ input }), headers: { "Idempotency-Key": key } }),
+  request: (id: string) => authed<AiRequest>(`/ai/requests/${id}`),
+  exportDoc: (id: string, format: "docx" | "pdf") => authedBlob(`/ai/requests/${id}/export?format=${format}`),
   resendVerification: () => authed<void>("/auth/resend-verification", { method: "POST" }),
 };
