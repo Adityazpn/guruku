@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Notice } from "@/components/ui/AuthCard";
@@ -90,6 +91,7 @@ export default function ToolPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-navy">Hasil (draf)</h2>
             <div className="flex gap-2">
+              {req.document_id && <Link href={`/app/documents/${req.document_id}`} className="rounded-lg bg-navy text-white px-3 py-1.5 text-sm">Sunting & simpan</Link>}
               <button onClick={() => download("docx")} className="rounded-lg border border-navy text-navy px-3 py-1.5 text-sm">Unduh DOCX</button>
               <button onClick={() => download("pdf")} className="rounded-lg border border-navy text-navy px-3 py-1.5 text-sm">Unduh PDF</button>
             </div>

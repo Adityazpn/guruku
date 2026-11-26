@@ -1,4 +1,4 @@
-import type { AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
+import type { DocFull, DocSummary, DocVersion, AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) {
@@ -27,6 +27,8 @@ const MESSAGES: Record<string, string> = {
   model_exists: "Model sudah ada.",
   validation: "Isian tidak valid. Periksa angka dan batasnya.",
   forbidden: "Anda tidak memiliki akses.",
+  version_conflict: "Dokumen ini sudah diubah di tempat lain. Muat ulang halaman sebelum menyimpan.",
+  not_found: "Dokumen tidak ditemukan.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
@@ -112,6 +114,18 @@ export const adminApi = {
   grant: (id: string, amount: number, reason: string, expires_in_days: number) =>
     send<{ total: string }>("POST", `/admin/users/${id}/credits/grant`, { amount, reason, expires_in_days, kind: "bonus" }),
   audit: (page = 1) => authed<{ total: number; items: AuditItem[] }>(`/admin/audit-logs?page=${page}`),
+};
+
+export const docsApi = {
+  list: (page = 1, q = "") => authed<{ total: number; items: DocSummary[] }>(`/documents?page=${page}&q=${encodeURIComponent(q)}`),
+  get: (id: string) => authed<DocFull>(`/documents/${id}`),
+  save: (id: string, body: { title?: string; content?: Record<string, unknown>; note?: string; base_version: number }) => send<DocFull>("PATCH", `/documents/${id}`, body),
+  remove: (id: string) => authed<void>(`/documents/${id}`, { method: "DELETE" }),
+  duplicate: (id: string) => send<DocFull>("POST", `/documents/${id}/duplicate`),
+  versions: (id: string) => authed<DocVersion[]>(`/documents/${id}/versions`),
+  restore: (id: string, version: number) => send<DocFull>("POST", `/documents/${id}/restore`, { version }),
+  export: (id: string, format: "docx" | "pdf", version?: number) => authedBlob(`/documents/${id}/export?format=${format}${version ? `&version=${version}` : ""}`),
+  regenerate: (id: string, key: string) => authed<{ id: string; status: string }>(`/documents/${id}/regenerate`, { method: "POST", headers: { "Idempotency-Key": key } }),
 };
 
 export const api = {

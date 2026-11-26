@@ -32,5 +32,6 @@ class RequestOut(BaseModel):
     error_code: str | None
     credits_reserved: Decimal
     credits_charged: Decimal | None
+    document_id: str | None = None
     created_at: datetime
     finished_at: datetime | None

@@ -44,7 +44,87 @@ def build_generic(title: str, inp: dict, out: dict) -> Doc:
     return Doc(title, _meta(inp), _generic(title, out))
 
 
-BUILDERS: dict[str, Callable[[dict, dict], Doc]] = {"tp-generator": build_tp}
+def _h(t, lvl=2):
+    return Block("heading", t, level=lvl)
+
+
+def _p(t):
+    return Block("paragraph", t)
+
+
+def _ul(items):
+    return Block("bullets", items=[str(i) for i in items])
+
+
+def _kegiatan(k):
+    return [_h("Kegiatan Pembelajaran", 1), _h("Pendahuluan"), _ul(k["pendahuluan"]), _h("Kegiatan Inti"), _ul(k["inti"]), _h("Penutup"), _ul(k["penutup"])]
+
+
+def build_modul(inp, o):
+    i = o["identitas"]
+    b = [_h("Identitas Modul", 1), Block("table", rows=[["Mata pelajaran", i["mata_pelajaran"]], ["Kelas", i["kelas"]], ["Alokasi waktu", i["alokasi_waktu"]]]),
+         _h("Kompetensi Awal"), _p(o["kompetensi_awal"]), _h("Dimensi Profil yang Dikembangkan"), _ul(o["dimensi_profil"]),
+         _h("Sarana dan Prasarana"), _ul(o["sarana_prasarana"]), _h("Target Peserta Didik"), _p(o["target_peserta_didik"]),
+         _h("Model Pembelajaran"), _p(o["model_pembelajaran"]), _h("Tujuan Pembelajaran", 1), _ul(o["tujuan_pembelajaran"]),
+         _h("Pemahaman Bermakna"), _ul(o["pemahaman_bermakna"]), _h("Pertanyaan Pemantik"), _ul(o["pertanyaan_pemantik"]), *_kegiatan(o["kegiatan"]),
+         _h("Asesmen", 1), _h("Diagnostik"), _p(o["asesmen"]["diagnostik"]), _h("Formatif"), _p(o["asesmen"]["formatif"]), _h("Sumatif"), _p(o["asesmen"]["sumatif"]),
+         _h("Pengayaan dan Remedial", 1), _h("Pengayaan"), _p(o["pengayaan_remedial"]["pengayaan"]), _h("Remedial"), _p(o["pengayaan_remedial"]["remedial"]),
+         _h("Refleksi", 1), _h("Refleksi Guru"), _ul(o["refleksi"]["guru"]), _h("Refleksi Peserta Didik"), _ul(o["refleksi"]["peserta_didik"])]
+    return Doc("Modul Ajar", _meta(inp), b)
+
+
+def build_rpp(inp, o):
+    i, p = o["identitas"], o["penilaian"]
+    b = [_h("Identitas", 1), Block("table", rows=[["Mata pelajaran", i["mata_pelajaran"]], ["Kelas", i["kelas"]], ["Alokasi waktu", i["alokasi_waktu"]]]),
+         _h("Tujuan Pembelajaran", 1), _ul(o["tujuan_pembelajaran"]), _h("Materi Pokok"), _p(o["materi_pokok"]), _h("Metode"), _ul(o["metode"]),
+         _h("Media dan Alat"), _ul(o["media_alat"]), *_kegiatan(o["kegiatan"]), _h("Penilaian", 1),
+         Block("table", rows=[["Aspek", "Teknik/Instrumen"], ["Sikap", p["sikap"]], ["Pengetahuan", p["pengetahuan"]], ["Keterampilan", p["keterampilan"]]]),
+         _h("Refleksi", 1), _ul(o["refleksi"])]
+    return Doc("Rencana Pelaksanaan Pembelajaran (RPP)", _meta(inp), b)
+
+
+def build_atp(inp, o):
+    rows = [["No", "Tujuan Pembelajaran", "Materi", "Alokasi Waktu", "Asesmen"]] + [[str(a["urutan"]), a["tujuan"], a["materi"], a["alokasi_waktu"], a["asesmen"]] for a in o["alur"]]
+    b = [_h("Alur Tujuan Pembelajaran", 1), Block("table", rows=rows)]
+    if o.get("catatan"):
+        b += [_h("Catatan"), _p(o["catatan"])]
+    return Doc("Alur Tujuan Pembelajaran (ATP)", _meta(inp), b)
+
+
+def build_lkpd(inp, o):
+    b = [_h(o["judul"], 1), _h("Tujuan"), _ul(o["tujuan"]), _h("Petunjuk"), _ul(o["petunjuk"]), _h("Alat dan Bahan"), _ul(o["alat_bahan"])]
+    for n, k in enumerate(o["kegiatan"], 1):
+        b += [_h(f"Kegiatan {n}: {k['judul']}"), _p("Langkah-langkah:"), Block("numbered", items=k["langkah"]), _p("Pertanyaan:"), Block("numbered", items=k["pertanyaan"])]
+    b += [_h("Refleksi", 1), _ul(o["refleksi"])]
+    return Doc("Lembar Kerja Peserta Didik (LKPD)", _meta(inp), b)
+
+
+def build_pg(inp, o):
+    b = [_h("Soal Pilihan Ganda", 1)]
+    for q in o["soal"]:
+        b += [_p(f"{q['nomor']}. {q['pertanyaan']}"), _p("\n".join(f"{k}. {v}" for k, v in q["opsi"].items()))]
+    rows = [["No", "Kunci", "Level", "Pembahasan"]] + [[str(q["nomor"]), q["kunci"], q["level_kognitif"], q["pembahasan"]] for q in o["soal"]]
+    return Doc("Soal Pilihan Ganda", _meta(inp), b + [_h("Kunci Jawaban dan Pembahasan", 1), Block("table", rows=rows)])
+
+
+def build_esai(inp, o):
+    b = [_h("Soal Esai", 1)] + [_p(f"{q['nomor']}. {q['pertanyaan']} (skor maksimal {q['skor_maks']})") for q in o["soal"]] + [_h("Kunci Jawaban dan Rubrik", 1)]
+    for q in o["soal"]:
+        b += [_h(f"Soal {q['nomor']} ({q['level_kognitif']})"), _p(q["kunci_jawaban"]),
+              Block("table", rows=[["Skor", "Deskripsi"]] + [[str(r["skor"]), r["deskripsi"]] for r in q["rubrik"]])]
+    return Doc("Soal Esai", _meta(inp), b)
+
+
+def build_rubrik(inp, o):
+    names = [lv["nama"] for lv in o["kriteria"][0]["level"]]
+    rows = [["Kriteria"] + [f"{lv['nama']} ({lv['skor']})" for lv in o["kriteria"][0]["level"]]]
+    rows += [[k["kriteria"]] + [lv["deskripsi"] for lv in k["level"]] for k in o["kriteria"]]
+    return Doc("Rubrik Penilaian", _meta(inp) + [("Jenis penilaian", str(inp.get("assessment_type", "")))], [_h("Rubrik Analitik", 1), Block("table", rows=rows)] if names else [])
+
+
+BUILDERS: dict[str, Callable[[dict, dict], Doc]] = {
+    "tp-generator": build_tp, "modul-ajar": build_modul, "rpp": build_rpp, "atp": build_atp, "lkpd": build_lkpd,
+    "soal-pilihan-ganda": build_pg, "soal-esai": build_esai, "rubrik-penilaian": build_rubrik}
 
 
 def build(slug: str, title: str, inp: dict, out: dict) -> Doc:

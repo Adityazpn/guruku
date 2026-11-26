@@ -53,6 +53,7 @@ class AiRequest(Base, TimestampMixin):
     credits_reserved: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     credits_charged: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     attempts: Mapped[int] = mapped_column(default=0)
+    target_document_id: Mapped[uuid.UUID | None] = mapped_column()  # no FK: avoids a documents<->ai_requests cycle  # set when regenerating a document
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

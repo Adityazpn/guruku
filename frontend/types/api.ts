@@ -16,7 +16,7 @@ export interface Estimate { mode: string; expected: string; min: string; max: st
 export interface AiRequest {
   id: string; tool_slug: string; status: "queued" | "running" | "succeeded" | "failed";
   output: Record<string, unknown> | null; error_code: string | null;
-  credits_reserved: string; credits_charged: string | null; created_at: string; finished_at: string | null;
+  document_id: string | null; credits_reserved: string; credits_charged: string | null; created_at: string; finished_at: string | null;
 }
 export interface CreditSummary { subscription: string; bonus: string; purchased: string; total: string; next_expiry: string | null }
 
@@ -44,3 +44,12 @@ export interface UsageReport {
 }
 export interface AdminUser { id: string; email: string; full_name: string; status: string; roles: string[]; credits: string }
 export interface AuditItem { id: string; actor_id: string | null; action: string; entity_type: string; entity_id: string; created_at: string; after: unknown }
+
+export interface DocSummary { id: string; title: string; tool_slug: string; version: number; updated_at: string; created_at: string }
+export interface DocFull extends DocSummary {
+  content: Record<string, unknown>; input: Record<string, unknown>; output_schema: Schema; tool_name: string;
+}
+export interface Schema {
+  type?: string; enum?: string[]; properties?: Record<string, Schema>; items?: Schema; required?: string[]; minItems?: number; minimum?: number;
+}
+export interface DocVersion { version: number; source: string; note: string; created_at: string }

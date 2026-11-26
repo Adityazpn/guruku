@@ -76,7 +76,10 @@ def generate(slug: str, body: GenerateIn, background: BackgroundTasks,
 
 
 def _out(db: Session, r: AiRequest, slug: str) -> RequestOut:
-    return RequestOut(id=str(r.id), tool_slug=slug, status=r.status, output=r.output, error_code=r.error_code,
+    from app.documents.models import Document
+
+    doc_id = db.scalar(select(Document.id).where(Document.request_id == r.id)) if r.status == "succeeded" else None
+    return RequestOut(document_id=str(doc_id) if doc_id else None, id=str(r.id), tool_slug=slug, status=r.status, output=r.output, error_code=r.error_code,
                       credits_reserved=r.credits_reserved, credits_charged=r.credits_charged,
                       created_at=r.created_at, finished_at=r.finished_at)
 

@@ -21,6 +21,7 @@ import app.admin.models
 import app.ai_engine.models
 import app.ai_providers.models
 import app.credits.models
+import app.documents.models
 import app.credits.pricing_models
 import app.users.models  # noqa: F401
 from app.core.config import get_settings

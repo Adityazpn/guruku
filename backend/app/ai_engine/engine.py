@@ -13,6 +13,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai_engine.catalog import POST_CHECKS
 from app.ai_engine.models import AiCostTracking, AiPromptVersion, AiRequest, AiTool, AiUsage
 from app.ai_providers import costing
 from app.ai_providers.base import LLMRequest, MalformedOutput, ProviderAuthError, ProviderError, ProviderQuotaExhausted
@@ -80,7 +81,7 @@ def validate_input(tool: AiTool, data: dict) -> None:
         raise EngineError("invalid_input", 422, e.message) from None
 
 
-def submit(db: Session, user_id: uuid.UUID, slug: str, data: dict, idempotency_key: str) -> AiRequest:
+def submit(db: Session, user_id: uuid.UUID, slug: str, data: dict, idempotency_key: str, target_document_id=None) -> AiRequest:
     tool = db.scalar(select(AiTool).where(AiTool.slug == slug))
     if tool is None or not tool.is_active:
         raise EngineError("tool_not_found", 404)
@@ -95,7 +96,7 @@ def submit(db: Session, user_id: uuid.UUID, slug: str, data: dict, idempotency_k
         raise EngineError("tool_not_ready", 503, "no published prompt")
     wallet = credits.get_or_create_wallet(db, user_id)
     req = AiRequest(user_id=user_id, tool_id=tool.id, prompt_version_id=version.id, status="queued",
-                    idempotency_key=idempotency_key, input=data, credits_reserved=est["reserve"])
+                    idempotency_key=idempotency_key, input=data, credits_reserved=est["reserve"], target_document_id=target_document_id)
     db.add(req)
     try:
         db.flush()
@@ -117,7 +118,7 @@ def _render(version: AiPromptVersion, data: dict) -> str:
     return _jinja.from_string(version.user_template).render(input=data, input_json=json.dumps(data, ensure_ascii=False, indent=2))
 
 
-def _parse_and_validate(text: str, tool: AiTool) -> dict:
+def _parse_and_validate(text: str, tool: AiTool, data: dict) -> dict:
     s = text.strip()
     if s.startswith("```"):  # tolerate fenced JSON
         s = s.strip("`")
@@ -125,7 +126,10 @@ def _parse_and_validate(text: str, tool: AiTool) -> dict:
     try:
         obj = json.loads(s)
         jsonschema.validate(obj, tool.output_schema)
-    except (ValueError, jsonschema.ValidationError) as e:
+        check = POST_CHECKS.get(tool.slug)
+        if check:
+            check(data, obj)  # e.g. exactly N questions, answer key inside the options
+    except (ValueError, KeyError, TypeError, jsonschema.ValidationError) as e:
         raise MalformedOutput(str(e)[:200]) from None
     return obj
 
@@ -199,7 +203,7 @@ def process(db: Session, request_id: uuid.UUID, sleep=time.sleep) -> AiRequest:
                     acc.add(db, model, provider, resp, now)
                     if resp.finish_reason == "length":
                         raise MalformedOutput("output truncated (token limit)")
-                    result = _parse_and_validate(resp.text, tool)
+                    result = _parse_and_validate(resp.text, tool, req.input)
                     break
                 except MalformedOutput as e:
                     last_err = e
@@ -255,6 +259,9 @@ def _succeed(db, req, tool, result, acc, started):
                           cost_usd=usd, cost_idr=idr, is_estimate=True, credits_charged=final, charge_mode=rule.mode))
     req.output, req.status, req.model_id = result, "succeeded", acc.model.id
     req.credits_charged, req.finished_at = final, utcnow()
+    from app.documents.service import create_from_request  # local import: documents depends on ai_engine models
+
+    create_from_request(db, req, tool)
     db.commit()
     return req
 

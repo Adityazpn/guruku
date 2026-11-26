@@ -6,4 +6,5 @@ import app.ai_providers.models  # noqa: F401
 import app.auth.models  # noqa: F401
 import app.credits.models  # noqa: F401
 import app.credits.pricing_models  # noqa: F401
+import app.documents.models  # noqa: F401
 import app.users.models  # noqa: F401
