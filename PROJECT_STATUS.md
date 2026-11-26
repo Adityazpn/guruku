@@ -20,7 +20,9 @@ Brand Nalar Edu (pending TM/domain check) · managed Postgres, ID/SG region · i
 - [x] Alembic + models (users, roles, user_roles, user_sessions); migration 0001 verified up/down on SQLite only
 - [x] Auth: register/login/refresh/logout/me, Argon2id, 15-min JWT, rotating refresh cookie with reuse detection, lockout (5 fails/15 min), DB-checked RBAC dependency
 - [x] Email verification + password reset (hashed single-use tokens, resets revoke sessions, no account enumeration), SMTP sender (console outbox when SMTP_HOST unset), in-process rate limiting, user profile GET/PUT; migration 0002
-- [ ] Frontend (Next.js) shell, CI, Celery worker
+- [x] Frontend (Next.js 14, TS, Tailwind, Inter): landing, register, login, forgot/reset password, verify email, dashboard shell with auth guard, silent refresh, /api proxy to backend. `tsc`, `next build`, 2 vitest tests pass; browser walkthrough (Playwright, 390px, real backend on SQLite) passed: validation, bad login, login, reload via refresh cookie, no horizontal overflow, logout + route guard
+- [x] CI workflow (.github/workflows/ci.yml): ruff, Alembic up/down/up on PostgreSQL, pytest, tsc, vitest, build — **not yet run on GitHub; first run will be the first Postgres check**
+- [ ] Celery worker
 
 ## Pending
 Phases 3–10; remaining Phase 2 items above.
@@ -37,10 +39,10 @@ See SPEC_02 §8 (AD-1…AD-11).
 None created.
 
 ## Testing status
-Backend: 16 tests pass locally (SQLite in-memory): health, auth flows, lockout, refresh reuse, RBAC. Docker Compose NOT yet run. Nothing else is claimed to work.
+Backend: 16 backend tests pass locally (SQLite in-memory): health, auth flows, lockout, refresh reuse, RBAC. Docker Compose NOT yet run. Nothing else is claimed to work.
 
 ## Deployment status
-Not deployed. No credentials configured (OpenAI, Midtrans, Xendit, cloud, domain all pending owner).
+Not deployed. Plan: frontend on Vercel (subdomain guruku.peluangruang.id via DNS CNAME), backend + Postgres + Redis on a VPS or managed services; the owner's Hostinger Premium shared hosting cannot run the backend. No credentials configured (OpenAI, Midtrans, Xendit, cloud, domain all pending owner).
 
 ## Next development task
-After approval + answers to the unresolved decisions list (SPEC_03, end): Next.js frontend shell (landing, register/login, dashboard), CI with Postgres service, Celery worker; then Phase 3/4 (provider layer, credit ledger).
+After approval + answers to the unresolved decisions list (SPEC_03, end): Check first CI run on GitHub; then Phase 4 credit ledger + reservation (with Postgres concurrency tests), then Phase 3 AI provider layer.

@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.auth.models import EmailToken, UserSession
 from app.core.config import get_settings
-from app.core.email import send_email
 from app.core.db import utcnow
+from app.core.email import send_email
 from app.core.security import (
     REFRESH_TTL,
     create_access_token,

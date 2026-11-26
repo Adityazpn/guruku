@@ -1,16 +1,23 @@
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import service
-from app.auth.schemas import ForgotIn, LoginIn, RegisterIn, ResetIn, TokenIn, TokenOut, UserOut
+from app.auth.schemas import (
+    ForgotIn,
+    LoginIn,
+    RegisterIn,
+    ResetIn,
+    TokenIn,
+    TokenOut,
+    UserOut,
+)
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.core.rate_limit import rate_limit
 from app.core.security import REFRESH_TTL
-from sqlalchemy import select
-
 from app.users.models import User, UserProfile
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -28,7 +35,7 @@ def _guard(fn, *a, **kw):
     try:
         return fn(*a, **kw)
     except service.AuthError as e:
-        raise HTTPException(e.status, e.code)
+        raise HTTPException(e.status, e.code) from None
 
 
 def _user_out(u: User) -> UserOut:

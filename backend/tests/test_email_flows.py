@@ -1,8 +1,6 @@
 import re
 
 from app.core import email as mailer
-from app.core import rate_limit as rl
-from app.users.models import User
 
 PW = "correct-horse-battery"
 

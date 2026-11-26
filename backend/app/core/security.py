@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from argon2 import PasswordHasher
@@ -35,7 +35,7 @@ def _secret() -> str:
 
 
 def create_access_token(user_id: str, roles: list[str]) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {"sub": user_id, "roles": roles, "iat": now, "exp": now + ACCESS_TTL, "typ": "access"}
     return jwt.encode(payload, _secret(), algorithm="HS256")
 

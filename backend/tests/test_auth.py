@@ -1,6 +1,7 @@
+from fastapi import Depends
+
 from app.auth.models import UserSession
 from app.core.deps import require_roles
-from fastapi import Depends
 from main import app
 
 PW = "correct-horse-battery"

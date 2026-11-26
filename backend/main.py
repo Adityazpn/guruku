@@ -1,6 +1,7 @@
 from fastapi import APIRouter, FastAPI
 
-from app.auth.router import me_router, router as auth_router
+from app.auth.router import me_router
+from app.auth.router import router as auth_router
 from app.core.config import get_settings
 
 app = FastAPI(title="AI Education Platform API", version="0.1.0")

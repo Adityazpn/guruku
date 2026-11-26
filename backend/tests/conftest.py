@@ -4,11 +4,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import app.auth.models  # noqa: F401  (register tables)
-import app.users.models  # noqa: F401
-from app.core.db import Base, get_db
+import app.auth.models
+import app.users.models
 from app.core import email as mailer
 from app.core import rate_limit as rl
+from app.core.db import Base, get_db
 from main import app
 
 
