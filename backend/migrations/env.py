@@ -17,7 +17,10 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 import app.auth.models
+import app.ai_engine.models
+import app.ai_providers.models
 import app.credits.models
+import app.credits.pricing_models
 import app.users.models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base

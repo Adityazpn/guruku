@@ -4,8 +4,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.ai_engine.models
+import app.ai_providers.models
 import app.auth.models
 import app.credits.models
+import app.credits.pricing_models
 import app.users.models
 from app.core import email as mailer
 from app.core import rate_limit as rl
@@ -68,3 +71,25 @@ def pg(pg_engine):
         c.execute(text("TRUNCATE " + ", ".join(names) + " RESTART IDENTITY CASCADE"))
         c.execute(text("ALTER TABLE credit_transactions ENABLE TRIGGER credit_ledger_no_update"))
     return sessionmaker(pg_engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def pg_client(pg, monkeypatch):
+    """HTTP client backed by PostgreSQL; AI jobs run inline instead of in a background worker."""
+    rl.reset()
+    mailer.outbox.clear()
+
+    def override():
+        with pg() as s:
+            yield s
+
+    def inline(request_id, background):
+        from app.ai_engine import engine
+
+        with pg() as s:
+            engine.process(s, request_id, sleep=lambda _: None)
+
+    monkeypatch.setattr("app.ai_engine.dispatch.dispatch", inline)
+    app.dependency_overrides[get_db] = override
+    yield TestClient(app)
+    app.dependency_overrides.clear()
