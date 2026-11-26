@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.admin.models
 import app.ai_engine.models
 import app.ai_providers.models
 import app.auth.models

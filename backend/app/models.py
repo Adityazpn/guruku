@@ -1,5 +1,6 @@
 """Imports every ORM model so the full schema is registered on Base.metadata.
 Any process that touches the database (API, Celery worker, Alembic) must import this module."""
+import app.admin.models  # noqa: F401
 import app.ai_engine.models  # noqa: F401
 import app.ai_providers.models  # noqa: F401
 import app.auth.models  # noqa: F401

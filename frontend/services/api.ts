@@ -1,4 +1,4 @@
-import type { AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
+import type { AdminProvider, AdminProviders, AdminTool, AdminUser, AuditItem, PromptVersion, UsageReport, AiRequest, CreditSummary, Estimate, ToolDetail, ToolSummary, User } from "@/types/api";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) {
@@ -21,6 +21,12 @@ const MESSAGES: Record<string, string> = {
   provider_timeout: "Layanan AI terlalu lama merespons. Kredit Anda dikembalikan.",
   spend_limit: "Layanan AI sementara dibatasi. Kredit Anda dikembalikan.",
   worker_lost: "Proses terhenti. Kredit Anda dikembalikan; silakan coba lagi.",
+  no_credential: "Provider belum punya API key. Simpan key terlebih dahulu.",
+  unsupported_provider: "Provider ini belum didukung.",
+  provider_exists: "Provider sudah ada.",
+  model_exists: "Model sudah ada.",
+  validation: "Isian tidak valid. Periksa angka dan batasnya.",
+  forbidden: "Anda tidak memiliki akses.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
@@ -78,6 +84,35 @@ export async function authedBlob(path: string): Promise<{ blob: Blob; filename: 
 }
 
 const post = (path: string, body: unknown) => raw(path, { method: "POST", body: JSON.stringify(body) }).then(parse);
+
+const send = <T,>(method: string, path: string, body?: unknown) =>
+  authed<T>(path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+
+export const adminApi = {
+  providers: () => authed<AdminProviders>("/admin/providers"),
+  createProvider: (code: string, name: string) => send<AdminProvider>("POST", "/admin/providers", { code, name }),
+  patchProvider: (id: string, body: Record<string, unknown>) => send<AdminProvider>("PATCH", `/admin/providers/${id}`, body),
+  setKey: (id: string, api_key: string, label: string) => send<AdminProvider>("PUT", `/admin/providers/${id}/credential`, { api_key, label }),
+  testProvider: (id: string, model_id: string) => send<{ ok: boolean; error?: string }>("POST", `/admin/providers/${id}/test`, { model_id }),
+  addModel: (id: string, model_code: string) => send<AdminProvider>("POST", `/admin/providers/${id}/models`, { model_code }),
+  patchModel: (id: string, body: Record<string, unknown>) => send<AdminProvider>("PATCH", `/admin/models/${id}`, body),
+  setPrice: (id: string, input_per_1m: number, output_per_1m: number, cached?: number) =>
+    send<AdminProvider>("POST", `/admin/models/${id}/pricing`, { input_per_1m, output_per_1m, cached_input_per_1m: cached }),
+  setFx: (rate: number) => send<{ rate: number }>("POST", "/admin/fx-rates", { rate }),
+  tools: () => authed<AdminTool[]>("/admin/tools"),
+  patchTool: (id: string, body: Record<string, unknown>) => send<AdminTool>("PATCH", `/admin/tools/${id}`, body),
+  assign: (id: string, model_ids: string[]) => send<AdminTool>("PUT", `/admin/tools/${id}/assignments`, { model_ids }),
+  setRule: (id: string, body: Record<string, unknown>) => send<AdminTool>("PUT", `/admin/tools/${id}/pricing-rule`, body),
+  prompts: (id: string) => authed<PromptVersion[]>(`/admin/tools/${id}/prompts`),
+  createPrompt: (id: string, body: Record<string, unknown>) => send<PromptVersion>("POST", `/admin/tools/${id}/prompts`, body),
+  publishPrompt: (vid: string) => send<PromptVersion>("POST", `/admin/prompts/${vid}/publish`),
+  rollback: (id: string, version: number) => send<PromptVersion>("POST", `/admin/tools/${id}/prompts/rollback`, { version }),
+  usage: (days = 30) => authed<UsageReport>(`/admin/ai/usage?days=${days}`),
+  users: (q: string) => authed<AdminUser[]>(`/admin/users?q=${encodeURIComponent(q)}`),
+  grant: (id: string, amount: number, reason: string, expires_in_days: number) =>
+    send<{ total: string }>("POST", `/admin/users/${id}/credits/grant`, { amount, reason, expires_in_days, kind: "bonus" }),
+  audit: (page = 1) => authed<{ total: number; items: AuditItem[] }>(`/admin/audit-logs?page=${page}`),
+};
 
 export const api = {
   async login(email: string, password: string) {
