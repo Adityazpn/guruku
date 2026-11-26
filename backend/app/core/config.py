@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     fake_gateway_secret: str = "dev-only-fake-gateway-secret"
     grace_days: int = 3
     renewal_notice_days: int = 3
+    admin_mfa_required: bool = True
+    allowed_origins: str = ""  # comma-separated extra origins allowed to call cookie endpoints (APP_BASE_URL is always allowed)
     queue_mode: str = "background"  # background (dev, in-process) | celery (production worker)
 
 

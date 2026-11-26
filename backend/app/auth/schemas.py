@@ -10,6 +10,7 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str = Field(max_length=128)
+    totp: str | None = Field(default=None, max_length=10)
 
 
 class TokenOut(BaseModel):
@@ -23,6 +24,7 @@ class UserOut(BaseModel):
     full_name: str
     roles: list[str]
     email_verified: bool = False
+    mfa_enabled: bool = False
 
 
 class TokenIn(BaseModel):
@@ -36,3 +38,12 @@ class ForgotIn(BaseModel):
 class ResetIn(BaseModel):
     token: str = Field(min_length=10, max_length=200)
     new_password: str = Field(min_length=10, max_length=128)
+
+
+class MfaSetupOut(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MfaCodeIn(BaseModel):
+    code: str = Field(min_length=6, max_length=10)

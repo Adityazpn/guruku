@@ -15,6 +15,7 @@ class UserSession(Base, TimestampMixin):
     user_agent: Mapped[str | None] = mapped_column(String(300))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    mfa_verified: Mapped[bool] = mapped_column(default=False)
     rotated_from: Mapped[uuid.UUID | None] = mapped_column()
 
 

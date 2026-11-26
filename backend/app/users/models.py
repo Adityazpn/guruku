@@ -20,6 +20,8 @@ class User(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="active")  # active|suspended|deleted
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    mfa_secret_enc: Mapped[str | None] = mapped_column(String(300))
+    mfa_enabled: Mapped[bool] = mapped_column(default=False)
     failed_login_count: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     roles: Mapped[list["UserRole"]] = relationship(lazy="selectin", cascade="all, delete-orphan")

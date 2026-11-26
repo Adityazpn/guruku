@@ -33,6 +33,9 @@ const MESSAGES: Record<string, string> = {
   package_not_available: "Paket kredit ini tidak tersedia.",
   gateway_unavailable: "Layanan pembayaran sedang bermasalah. Anda belum ditagih; coba lagi nanti.",
   idempotency_key_required: "Permintaan tidak valid. Muat ulang halaman.",
+  mfa_required: "Masukkan kode 6 digit dari aplikasi autentikator.",
+  csrf_blocked: "Permintaan diblokir demi keamanan. Muat ulang halaman.",
+  invalid_code: "Kode salah. Periksa jam perangkat Anda dan coba lagi.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
@@ -52,6 +55,7 @@ export const setAccessToken = (t: string | null) => { accessToken = t; };
 
 async function raw(path: string, init: RequestInit = {}, auth = false): Promise<Response> {
   const headers = new Headers(init.headers);
+  headers.set("X-Requested-With", "fetch"); // CSRF guard for cookie endpoints: a cross-site form cannot set this
   if (init.body) headers.set("Content-Type", "application/json");
   if (auth && accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   return fetch(`/api/v1${path}`, { ...init, headers, credentials: "same-origin" });
@@ -156,8 +160,8 @@ async function authedOrPublic<T>(path: string): Promise<T> {
 export const rp = (n: number) => "Rp" + n.toLocaleString("id-ID");
 
 export const api = {
-  async login(email: string, password: string) {
-    const t = await post("/auth/login", { email, password }) as { access_token: string };
+  async login(email: string, password: string, totp?: string) {
+    const t = await post("/auth/login", { email, password, ...(totp ? { totp } : {}) }) as { access_token: string };
     setAccessToken(t.access_token);
   },
   register: (email: string, password: string, full_name: string) => post("/auth/register", { email, password, full_name }),
@@ -177,5 +181,7 @@ export const api = {
     authed<AiRequest>(`/tools/${slug}/generate`, { method: "POST", body: JSON.stringify({ input }), headers: { "Idempotency-Key": key } }),
   request: (id: string) => authed<AiRequest>(`/ai/requests/${id}`),
   exportDoc: (id: string, format: "docx" | "pdf") => authedBlob(`/ai/requests/${id}/export?format=${format}`),
+  mfaSetup: () => authed<{ secret: string; otpauth_uri: string }>("/auth/mfa/setup", { method: "POST" }),
+  mfaConfirm: (code: string) => authed<void>("/auth/mfa/confirm", { method: "POST", body: JSON.stringify({ code }) }),
   resendVerification: () => authed<void>("/auth/resend-verification", { method: "POST" }),
 };

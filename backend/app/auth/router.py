@@ -3,10 +3,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import mfa as mfa_mod
 from app.auth import service
 from app.auth.schemas import (
     ForgotIn,
     LoginIn,
+    MfaCodeIn,
+    MfaSetupOut,
     RegisterIn,
     ResetIn,
     TokenIn,
@@ -15,7 +18,7 @@ from app.auth.schemas import (
 )
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_csrf
 from app.core.rate_limit import rate_limit
 from app.core.security import REFRESH_TTL
 from app.users.models import User, UserProfile
@@ -39,7 +42,7 @@ def _guard(fn, *a, **kw):
 
 
 def _user_out(u: User) -> UserOut:
-    return UserOut(id=str(u.id), email=u.email, full_name=u.full_name, roles=u.role_codes, email_verified=u.email_verified_at is not None)
+    return UserOut(id=str(u.id), email=u.email, full_name=u.full_name, roles=u.role_codes, email_verified=u.email_verified_at is not None, mfa_enabled=u.mfa_enabled)
 
 
 @router.post("/register", response_model=UserOut, status_code=201, dependencies=[Depends(rate_limit("register", 10))])
@@ -51,13 +54,13 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     access, raw = _guard(
         service.login, db, body.email, body.password,
-        request.client.host if request.client else None, request.headers.get("user-agent"),
+        request.client.host if request.client else None, request.headers.get("user-agent"), body.totp,
     )
     _set_cookie(response, raw)
     return TokenOut(access_token=access)
 
 
-@router.post("/refresh", response_model=TokenOut)
+@router.post("/refresh", response_model=TokenOut, dependencies=[Depends(require_csrf)])
 def refresh(request: Request, response: Response, db: Session = Depends(get_db),
             refresh_token: str | None = Cookie(default=None)):
     if not refresh_token:
@@ -70,7 +73,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db),
     return TokenOut(access_token=access)
 
 
-@router.post("/logout", status_code=204)
+@router.post("/logout", status_code=204, dependencies=[Depends(require_csrf)])
 def logout(response: Response, db: Session = Depends(get_db), refresh_token: str | None = Cookie(default=None)):
     service.logout(db, refresh_token)
     response.delete_cookie(COOKIE, path="/api/v1/auth")
@@ -95,6 +98,26 @@ def forgot_password(body: ForgotIn, db: Session = Depends(get_db)):
 @router.post("/reset-password", status_code=204, dependencies=[Depends(rate_limit("reset", 10))])
 def reset_password(body: ResetIn, db: Session = Depends(get_db)):
     _guard(service.reset_password, db, body.token, body.new_password)
+
+
+@router.post("/mfa/setup", response_model=MfaSetupOut, dependencies=[Depends(rate_limit("mfa", 10))])
+def mfa_setup(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.mfa_enabled:
+        raise HTTPException(409, "mfa_already_enabled")
+    secret = mfa_mod.new_secret()
+    mfa_mod.store(user, secret)
+    db.commit()
+    return MfaSetupOut(secret=secret, otpauth_uri=mfa_mod.uri(user, secret))
+
+
+@router.post("/mfa/confirm", status_code=204, dependencies=[Depends(rate_limit("mfa", 10))])
+def mfa_confirm(body: MfaCodeIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.mfa_enabled or not user.mfa_secret_enc:
+        raise HTTPException(409, "mfa_not_pending")
+    if not mfa_mod.verify(user, body.code):
+        raise HTTPException(400, "invalid_code")
+    user.mfa_enabled = True
+    db.commit()  # existing sessions keep mfa=false and must sign in again to reach admin routes
 
 
 me_router = APIRouter(tags=["users"])

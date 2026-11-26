@@ -20,6 +20,18 @@ from app.core.db import Base, get_db
 from main import app
 
 
+@pytest.fixture(autouse=True)
+def _no_admin_mfa_by_default(monkeypatch):
+    """Most tests are about other things; the MFA tests switch enforcement back on explicitly."""
+    from app.core import config
+
+    monkeypatch.setenv("ADMIN_MFA_REQUIRED", "false")
+    config.get_settings.cache_clear()
+    yield
+    monkeypatch.undo()  # restore any patched get_settings before clearing its cache
+    config.get_settings.cache_clear()
+
+
 @pytest.fixture
 def db_session():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -38,7 +50,7 @@ def client(db_session):
         yield db_session
 
     app.dependency_overrides[get_db] = override
-    yield TestClient(app)
+    yield TestClient(app, headers={"X-Requested-With": "fetch"})
     app.dependency_overrides.clear()
 
 
@@ -95,5 +107,5 @@ def pg_client(pg, monkeypatch):
 
     monkeypatch.setattr("app.ai_engine.dispatch.dispatch", inline)
     app.dependency_overrides[get_db] = override
-    yield TestClient(app)
+    yield TestClient(app, headers={"X-Requested-With": "fetch"})
     app.dependency_overrides.clear()

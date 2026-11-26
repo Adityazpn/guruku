@@ -13,6 +13,20 @@ from app.tools.router import router as tools_router
 
 app = FastAPI(title="AI Education Platform API", version="0.1.0")
 
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+    if request.url.path.startswith("/api/") and "cache-control" not in resp.headers:
+        resp.headers["Cache-Control"] = "no-store"  # API responses carry personal data
+    if get_settings().app_env != "development":
+        resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
+
 api = APIRouter(prefix="/api/v1")
 
 

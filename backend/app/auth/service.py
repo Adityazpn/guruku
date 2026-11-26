@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import mfa
 from app.auth.models import EmailToken, UserSession
 from app.core.config import get_settings
 from app.core.db import utcnow
@@ -59,7 +60,7 @@ def register(db: Session, email: str, password: str, full_name: str) -> User:
     return user
 
 
-def _issue(db: Session, user: User, ip, ua, rotated_from=None) -> tuple[str, str]:
+def _issue(db: Session, user: User, ip, ua, rotated_from=None, mfa: bool = False) -> tuple[str, str]:
     raw, hashed = new_refresh_token()
     db.add(
         UserSession(
@@ -69,13 +70,14 @@ def _issue(db: Session, user: User, ip, ua, rotated_from=None) -> tuple[str, str
             user_agent=(ua or "")[:300],
             expires_at=utcnow() + REFRESH_TTL,
             rotated_from=rotated_from,
+            mfa_verified=mfa,
         )
     )
     db.commit()
-    return create_access_token(str(user.id), user.role_codes), raw
+    return create_access_token(str(user.id), user.role_codes, mfa), raw
 
 
-def login(db: Session, email: str, password: str, ip=None, ua=None) -> tuple[str, str]:
+def login(db: Session, email: str, password: str, ip=None, ua=None, totp: str | None = None) -> tuple[str, str]:
     user = db.scalar(select(User).where(User.email == email.lower()))
     if not user:
         verify_password(password, _DUMMY_HASH)
@@ -92,10 +94,19 @@ def login(db: Session, email: str, password: str, ip=None, ua=None) -> tuple[str
         raise AuthError("invalid_credentials")
     if user.status != "active":
         raise AuthError("account_disabled", 403)
+    if user.mfa_enabled:
+        if not totp:
+            raise AuthError("mfa_required")
+        if not mfa.verify(user, totp):
+            user.failed_login_count += 1  # wrong codes count toward lockout just like wrong passwords
+            if user.failed_login_count >= MAX_FAILED:
+                user.locked_until, user.failed_login_count = now + LOCK_FOR, 0
+            db.commit()
+            raise AuthError("invalid_credentials")
     user.failed_login_count = 0
     user.locked_until = None
     user.last_login_at = now
-    return _issue(db, user, ip, ua)
+    return _issue(db, user, ip, ua, mfa=user.mfa_enabled)
 
 
 def refresh(db: Session, raw_token: str, ip=None, ua=None) -> tuple[str, str]:
@@ -116,7 +127,7 @@ def refresh(db: Session, raw_token: str, ip=None, ua=None) -> tuple[str, str]:
     if not user or user.status != "active":
         raise AuthError("account_disabled", 403)
     sess.revoked_at = utcnow()
-    return _issue(db, user, ip, ua, rotated_from=sess.id)
+    return _issue(db, user, ip, ua, rotated_from=sess.id, mfa=sess.mfa_verified)
 
 
 def logout(db: Session, raw_token: str | None) -> None:

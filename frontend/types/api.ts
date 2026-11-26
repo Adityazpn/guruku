@@ -4,6 +4,7 @@ export interface User {
   full_name: string;
   roles: string[];
   email_verified: boolean;
+  mfa_enabled: boolean;
 }
 
 export interface ToolSummary { slug: string; name: string; category: string; description: string }

@@ -34,9 +34,9 @@ def _secret() -> str:
     return _ephemeral_key
 
 
-def create_access_token(user_id: str, roles: list[str]) -> str:
+def create_access_token(user_id: str, roles: list[str], mfa: bool = False) -> str:
     now = datetime.now(UTC)
-    payload = {"sub": user_id, "roles": roles, "iat": now, "exp": now + ACCESS_TTL, "typ": "access"}
+    payload = {"sub": user_id, "roles": roles, "mfa": mfa, "iat": now, "exp": now + ACCESS_TTL, "typ": "access"}
     return jwt.encode(payload, _secret(), algorithm="HS256")
 
 
