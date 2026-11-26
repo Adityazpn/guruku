@@ -238,7 +238,7 @@ def _tool_out(db: Session, t: AiTool) -> dict:
             problems.append("no_fx_rate")
         if usable and costing.get_pricing(db, usable[0][0].id, now) is None:
             problems.append("no_model_price")
-    return {"id": str(t.id), "slug": t.slug, "name": t.name, "category": t.category, "description": t.description, "is_active": t.is_active,
+    return {"id": str(t.id), "slug": t.slug, "name": t.name, "category": t.category, "description": t.description, "is_active": t.is_active, "sensitive": t.sensitive, "requires_subscription": t.requires_subscription, "hidden": t.hidden,
             "est_input_tokens": t.est_input_tokens, "est_output_tokens": t.est_output_tokens, "max_output_tokens": t.max_output_tokens,
             "models": [{"id": str(m.id), "model_code": m.model_code, "provider": p.code, "status": m.status} for m, p in rows],
             "published_prompt_version": ver.version if ver else None,

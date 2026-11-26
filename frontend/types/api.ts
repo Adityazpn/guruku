@@ -8,7 +8,7 @@ export interface User {
 }
 
 export interface ToolSummary { slug: string; name: string; category: string; description: string }
-export interface ToolDetail extends ToolSummary { input_schema: JsonSchema }
+export interface ToolDetail extends ToolSummary { input_schema: JsonSchema; sensitive?: boolean; requires_subscription?: boolean }
 export interface JsonSchema {
   required?: string[];
   properties: Record<string, { type?: string; enum?: string[]; minLength?: number; maxLength?: number; minimum?: number; maximum?: number }>;

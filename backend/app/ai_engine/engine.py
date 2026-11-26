@@ -23,8 +23,10 @@ from app.core.db import utcnow
 from app.credits import pricing
 from app.credits import service as credits
 from app.credits.pricing_models import CreditPricingRule
+from app.privacy import anonymizer
 
 RETRY_BACKOFF = (0.5, 1.5)  # seconds between retries of a retryable provider error (tests set to zeros)
+PRIVACY_SCRUB = {"asisten-guru"}  # tools that always get identifier-pattern scrubbing even though they are not 'sensitive'
 _jinja = SandboxedEnvironment(undefined=StrictUndefined, autoescape=False)
 
 
@@ -89,6 +91,25 @@ def submit(db: Session, user_id: uuid.UUID, slug: str, data: dict, idempotency_k
     if existing:
         return existing
     validate_input(tool, data)
+    if tool.requires_subscription:
+        from app.subscriptions import service as subs
+
+        if subs.live(db, user_id) is None:
+            raise EngineError("subscription_required", 403)
+    anon_blob = None
+    if tool.sensitive or tool.slug in PRIVACY_SCRUB:
+        if tool.sensitive:
+            from app.privacy import service as privacy
+
+            if not privacy.has_consent(db, user_id, "student_data"):
+                raise EngineError("consent_required", 403)
+        names = anonymizer.parse_names(data.get("student_names")) if tool.sensitive else []
+        data = {k: v for k, v in data.items() if k != "student_names"}  # names never enter the stored/provider-bound input
+        data, mapping = anonymizer.anonymize(data, names, skip_keys=frozenset({"conversation_id"}))
+        try:
+            anon_blob = anonymizer.seal(mapping)
+        except RuntimeError:  # PROVIDER_KEY_MASTER missing: refuse rather than send identifiable data we cannot protect
+            raise EngineError("server_misconfigured", 503) from None
     est = estimate(db, tool)
     version = db.scalar(select(AiPromptVersion).where(AiPromptVersion.tool_id == tool.id, AiPromptVersion.status == "published")
                         .order_by(AiPromptVersion.version.desc()))
@@ -96,7 +117,7 @@ def submit(db: Session, user_id: uuid.UUID, slug: str, data: dict, idempotency_k
         raise EngineError("tool_not_ready", 503, "no published prompt")
     wallet = credits.get_or_create_wallet(db, user_id)
     req = AiRequest(user_id=user_id, tool_id=tool.id, prompt_version_id=version.id, status="queued",
-                    idempotency_key=idempotency_key, input=data, credits_reserved=est["reserve"], target_document_id=target_document_id)
+                    idempotency_key=idempotency_key, input=data, credits_reserved=est["reserve"], target_document_id=target_document_id, anon_map_enc=anon_blob)
     db.add(req)
     try:
         db.flush()
@@ -119,6 +140,17 @@ def _render(version: AiPromptVersion, data: dict) -> str:
 
 
 def _parse_and_validate(text: str, tool: AiTool, data: dict) -> dict:
+    obj = _parse_core(text, tool, data)
+    if tool.sensitive:
+        bad = anonymizer.diagnostic_terms(obj)
+        if bad:  # advisory-only: the model must not label students clinically
+            raise MalformedOutput(f"istilah diagnostik terlarang: {', '.join(bad)}")
+        if anonymizer.has_crisis(data.get("observations")):
+            obj["_safety"] = anonymizer.CRISIS_NOTICE
+    return obj
+
+
+def _parse_core(text: str, tool: AiTool, data: dict) -> dict:
     s = text.strip()
     if s.startswith("```"):  # tolerate fenced JSON
         s = s.strip("`")
@@ -259,9 +291,14 @@ def _succeed(db, req, tool, result, acc, started):
                           cost_usd=usd, cost_idr=idr, is_estimate=True, credits_charged=final, charge_mode=rule.mode))
     req.output, req.status, req.model_id = result, "succeeded", acc.model.id
     req.credits_charged, req.finished_at = final, utcnow()
-    from app.documents.service import create_from_request  # local import: documents depends on ai_engine models
+    if tool.slug == "asisten-guru":
+        from app.assistant.service import on_success
 
-    create_from_request(db, req, tool)
+        on_success(db, req, result)
+    else:
+        from app.documents.service import create_from_request  # local import: documents depends on ai_engine models
+
+        create_from_request(db, req, tool)
     db.commit()
     return req
 

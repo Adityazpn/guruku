@@ -3,6 +3,7 @@ from fastapi import APIRouter, FastAPI
 import app.models  # noqa: F401
 from app.admin.commerce import router as commerce_router
 from app.admin.router import router as admin_router
+from app.assistant.router import router as assistant_router
 from app.auth.router import me_router
 from app.auth.router import router as auth_router
 from app.core import observability
@@ -12,6 +13,7 @@ from app.documents.router import router as documents_router
 from app.library.router import admin as library_admin_router
 from app.library.router import router as library_router
 from app.payments.router import router as billing_router
+from app.privacy.router import router as privacy_router
 from app.tools.router import router as tools_router
 
 observability.setup(get_settings().app_env)
@@ -77,5 +79,7 @@ api.include_router(admin_router)
 api.include_router(commerce_router)
 api.include_router(billing_router)
 api.include_router(library_router)
+api.include_router(assistant_router)
+api.include_router(privacy_router)
 api.include_router(library_admin_router)
 app.include_router(api)

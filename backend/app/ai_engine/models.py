@@ -21,6 +21,9 @@ class AiTool(Base, TimestampMixin):
     est_output_tokens: Mapped[int] = mapped_column(default=2500)
     max_output_tokens: Mapped[int] = mapped_column(default=4000)
     sort: Mapped[int] = mapped_column(default=0)
+    sensitive: Mapped[bool] = mapped_column(Boolean, default=False)  # handles student data: anonymize, consent, retention, advisory-only
+    requires_subscription: Mapped[bool] = mapped_column(Boolean, default=False)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)  # not listed in the tool catalogue (e.g. the chat assistant)
 
 
 class AiPromptVersion(Base, TimestampMixin):
@@ -53,6 +56,7 @@ class AiRequest(Base, TimestampMixin):
     credits_reserved: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     credits_charged: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     attempts: Mapped[int] = mapped_column(default=0)
+    anon_map_enc: Mapped[str | None] = mapped_column(String(4000))  # encrypted {token: student name}; lets the owner see real names again
     target_document_id: Mapped[uuid.UUID | None] = mapped_column()  # no FK: avoids a documents<->ai_requests cycle  # set when regenerating a document
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

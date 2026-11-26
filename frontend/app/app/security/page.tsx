@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Notice } from "@/components/ui/AuthCard";
 import { useAuth } from "@/hooks/useAuth";
-import { api, errorMessage } from "@/services/api";
+import { api, errorMessage, privacy } from "@/services/api";
 
 export default function SecurityPage() {
   const { user, reload } = useAuth();
@@ -27,6 +27,14 @@ export default function SecurityPage() {
           </div>
         )}
         {msg && <div className="mt-3"><Notice kind={msg.kind}>{msg.text}</Notice></div>}
+      </section>
+      <section className="mt-4 rounded-xl border border-slate-200 p-4">
+        <h2 className="font-semibold">Data siswa</h2>
+        <p className="text-sm text-slate-600 mt-1">Cabut persetujuan pemrosesan data siswa, atau hapus semua dokumen dan data permintaan dari alat analisis siswa.</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          <button className="rounded-lg border border-navy text-navy px-3 py-1.5" onClick={() => privacy.revoke().then(() => setMsg({ kind: "ok", text: "Persetujuan dicabut." })).catch((e) => setMsg({ kind: "error", text: errorMessage(e) }))}>Cabut persetujuan</button>
+          <button className="rounded-lg border border-red-600 text-red-600 px-3 py-1.5" onClick={() => { if (confirm("Hapus permanen semua dokumen & data dari alat analisis siswa? Tindakan ini tidak dapat dibatalkan.")) void privacy.erase().then((r) => setMsg({ kind: "ok", text: `Dihapus: ${r.documents} dokumen, ${r.requests} data permintaan.` })).catch((e) => setMsg({ kind: "error", text: errorMessage(e) })); }}>Hapus semua data siswa</button>
+        </div>
       </section>
     </div>
   );

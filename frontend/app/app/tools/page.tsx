@@ -8,12 +8,17 @@ export default function ToolsPage() {
   const [tools, setTools] = useState<ToolSummary[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [cat, setCat] = useState("");
   useEffect(() => { api.tools().then(setTools).catch((e) => setErr(errorMessage(e))); }, []);
-  const shown = (tools ?? []).filter((t) => (t.name + t.description).toLowerCase().includes(q.toLowerCase()));
+  const CATS: Record<string, string> = { planning: "Perencanaan", assessment: "Asesmen", administration: "Administrasi", analysis: "Analisis Siswa", media: "Media Belajar" };
+  const shown = (tools ?? []).filter((t) => (!cat || t.category === cat) && (t.name + t.description).toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="max-w-4xl">
       <h1 className="text-2xl font-semibold text-navy">Generator AI</h1>
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Cari alat…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari alat" />
+      <div className="mt-3 flex flex-wrap gap-2 text-sm" role="group" aria-label="Kategori">
+        {[["", "Semua"], ...Object.entries(CATS)].map(([k, v]) => <button key={k} aria-pressed={cat === k} onClick={() => setCat(k)} className={`rounded-full border px-3 py-1 ${cat === k ? "bg-navy text-white border-navy" : "border-slate-300"}`}>{v}</button>)}
+      </div>
       {err && <p role="alert" className="mt-4 text-sm text-red-600">{err}</p>}
       {tools === null && !err && <p className="mt-4 text-sm text-slate-600">Memuat…</p>}
       {tools && shown.length === 0 && <p className="mt-4 text-sm text-slate-600">Tidak ada alat yang cocok.</p>}

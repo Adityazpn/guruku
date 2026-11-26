@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV = [
-  ["Ringkasan", "/app"], ["Generator AI", "/app/tools"], ["Asisten AI", "#"], ["Perencanaan", "#"], ["Asesmen", "#"],
+  ["Ringkasan", "/app"], ["Generator AI", "/app/tools"], ["Asisten AI", "/app/assistant"], ["Perencanaan", "#"], ["Asesmen", "#"],
   ["Administrasi", "#"], ["Analisis Siswa", "#"], ["Media Belajar", "#"], ["Pustaka", "/app/library"],
   ["Dokumen Saya", "/app/documents"], ["Kredit AI", "/app/credits"], ["Langganan", "/app/subscription"], ["Pembayaran", "/app/payments"], ["Keamanan", "/app/security"], ["Profil", "#"],
 ];

@@ -13,6 +13,8 @@ class ToolOut(BaseModel):
 
 class ToolDetail(ToolOut):
     input_schema: dict
+    sensitive: bool = False
+    requires_subscription: bool = False
 
 
 class EstimateOut(BaseModel):

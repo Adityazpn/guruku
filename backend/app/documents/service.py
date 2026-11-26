@@ -36,17 +36,24 @@ def create_from_request(db: Session, req, tool: AiTool) -> Document:
     existing = db.scalar(select(Document).where(Document.request_id == req.id))
     if existing:
         return existing
+    content, inp = req.output, req.input or {}
+    if req.anon_map_enc:  # sensitive tool: the owner's own document shows real names again; the provider only ever saw tokens
+        from app.privacy import anonymizer
+
+        mapping = anonymizer.unseal(req.anon_map_enc)
+        content, inp = anonymizer.restore(req.output, mapping), anonymizer.restore(inp, mapping)
+        inp = {**inp, "student_names": ", ".join(mapping.values())}
     if req.target_document_id:
         doc = db.get(Document, req.target_document_id)
         if doc and not doc.is_deleted and doc.user_id == req.user_id:
-            add_version(db, doc, req.output, source="regenerate", note="Dibuat ulang oleh AI")
+            add_version(db, doc, content, source="regenerate", note="Dibuat ulang oleh AI")
             doc.request_id = req.id
             return doc
-    topic = (req.input or {}).get("topic") or (req.input or {}).get("subject") or ""
-    doc = Document(user_id=req.user_id, tool_slug=tool.slug, title=f"{tool.name}: {topic}"[:200] if topic else tool.name, input=req.input, request_id=req.id)
+    topic = inp.get("topic") or inp.get("subject") or inp.get("nama_kegiatan") or inp.get("jenis_surat") or ""
+    doc = Document(user_id=req.user_id, tool_slug=tool.slug, title=f"{tool.name}: {topic}"[:200] if topic else tool.name, input=inp, request_id=req.id)
     db.add(doc)
     db.flush()
-    add_version(db, doc, req.output, source="ai")
+    add_version(db, doc, content, source="ai")
     return doc
 
 

@@ -21,7 +21,9 @@ import app.admin.models
 import app.ai_engine.models
 import app.ai_providers.models
 import app.credits.models
+import app.assistant.models
 import app.documents.models
+import app.privacy.models
 import app.library.models
 import app.payments.models
 import app.subscriptions.models

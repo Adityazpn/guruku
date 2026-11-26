@@ -7,12 +7,14 @@ from sqlalchemy.pool import StaticPool
 import app.admin.models
 import app.ai_engine.models
 import app.ai_providers.models
+import app.assistant.models
 import app.auth.models
 import app.credits.models
 import app.credits.pricing_models
 import app.documents.models
 import app.library.models
 import app.payments.models
+import app.privacy.models
 import app.subscriptions.models
 import app.users.models
 from app.core import email as mailer

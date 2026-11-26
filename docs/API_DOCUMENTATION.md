@@ -46,6 +46,28 @@ Money/credit/AI-generation endpoints require an `Idempotency-Key` header (8–10
 | PATCH | `/api/v1/admin/plans/{pid}` | Patch Plan | bearer |
 | GET | `/api/v1/admin/webhooks` | Admin Webhooks | bearer |
 
+## admin-library
+
+| method | path | summary | auth |
+|---|---|---|---|
+| POST | `/api/v1/admin/library/categories` | Create Category | bearer |
+| GET | `/api/v1/admin/library/downloads` | Admin Downloads | bearer |
+| GET | `/api/v1/admin/library/items` | Admin Items | bearer |
+| POST | `/api/v1/admin/library/items` | Create Item | bearer |
+| PATCH | `/api/v1/admin/library/items/{item_id}` | Patch Item | bearer |
+| POST | `/api/v1/admin/library/items/{item_id}/files` | Upload | bearer |
+
+## assistant
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/v1/assistant/conversations` | List Conversations | bearer |
+| POST | `/api/v1/assistant/conversations` | New Conversation | bearer |
+| GET | `/api/v1/assistant/conversations/{cid}` | Get Conversation | bearer |
+| PATCH | `/api/v1/assistant/conversations/{cid}` | Rename | bearer |
+| DELETE | `/api/v1/assistant/conversations/{cid}` | Delete Conversation | bearer |
+| POST | `/api/v1/assistant/conversations/{cid}/messages` | Send Message | bearer |
+
 ## auth
 
 | method | path | summary | auth |
@@ -99,12 +121,32 @@ Money/credit/AI-generation endpoints require an `Idempotency-Key` header (8–10
 | POST | `/api/v1/documents/{doc_id}/restore` | Restore | bearer |
 | GET | `/api/v1/documents/{doc_id}/versions` | Versions | bearer |
 
+## library
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/v1/library/categories` | Categories | — |
+| GET | `/api/v1/library/downloads` | History | bearer |
+| GET | `/api/v1/library/files/{token}` | Local File | — |
+| GET | `/api/v1/library/items` | Items | bearer |
+| GET | `/api/v1/library/items/{item_id}` | Item | bearer |
+| POST | `/api/v1/library/items/{item_id}/download` | Download | bearer |
+
 ## other
 
 | method | path | summary | auth |
 |---|---|---|---|
 | GET | `/api/v1/health` | Health | — |
 | GET | `/api/v1/ready` | Ready | — |
+
+## privacy
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/v1/me/consents` | My Consents | bearer |
+| POST | `/api/v1/me/consents` | Give | bearer |
+| DELETE | `/api/v1/me/consents/{type_}` | Withdraw | bearer |
+| POST | `/api/v1/me/student-data/delete` | Erase | bearer |
 
 ## tools
 

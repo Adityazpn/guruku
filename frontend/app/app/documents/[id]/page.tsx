@@ -76,6 +76,7 @@ export default function DocumentPage() {
         <button className="rounded-lg bg-navy text-white px-4 py-1.5 text-sm disabled:opacity-50" disabled={busy || !dirty || problems.length > 0} onClick={onSave}>Simpan</button>
         <button className={btn} disabled={busy || dirty} onClick={() => run(async () => { const f = await docsApi.export(id, "docx"); save(f.blob, f.filename); })}>Unduh DOCX</button>
         <button className={btn} disabled={busy || dirty} onClick={() => run(async () => { const f = await docsApi.export(id, "pdf"); save(f.blob, f.filename); })}>Unduh PDF</button>
+        {doc.tool_slug === "konten-presentasi" && <button className={btn} disabled={busy || dirty} onClick={() => run(async () => { const f = await docsApi.export(id, "pptx"); save(f.blob, f.filename); })}>Unduh PPTX</button>}
         <button className={btn} disabled={busy} onClick={() => run(async () => { const d = await docsApi.duplicate(id); router.push(`/app/documents/${d.id}`); })}>Duplikat</button>
         <button className={btn} disabled={busy || dirty} onClick={onRegenerate}>Buat ulang (AI)</button>
         <button className="rounded-lg border border-red-600 text-red-600 px-3 py-1.5 text-sm disabled:opacity-50" disabled={busy}

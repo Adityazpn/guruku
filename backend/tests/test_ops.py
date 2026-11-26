@@ -25,10 +25,26 @@ def test_every_response_carries_a_request_id_and_it_is_honoured(client):
     assert client.get(f"{A}/health", headers={"X-Request-ID": "abc-123"}).headers["x-request-id"] == "abc-123"
 
 
-def test_json_logs_never_contain_secrets_or_bodies(client, caplog):
-    caplog.set_level(logging.INFO)
-    client.post(f"{A}/auth/login", json={"email": "x@x.id", "password": "SuperSecretPassword1"})
-    text = " ".join(r.getMessage() + json.dumps(getattr(r, "__dict__", {}), default=str) for r in caplog.records)
+def test_json_logs_never_contain_secrets_or_bodies(client):
+    records = []
+
+    class Grab(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    lg = logging.getLogger("access")  # own handler: independent of other tests' logging configuration
+    h, old = Grab(), (lg.level, lg.disabled)
+    lg.addHandler(h)
+    lg.setLevel(logging.INFO)
+    lg.disabled = False
+    try:
+        client.post(f"{A}/auth/login", json={"email": "x@x.id", "password": "SuperSecretPassword1"})
+    finally:
+        lg.removeHandler(h)
+        lg.setLevel(old[0])
+        lg.disabled = old[1]
+    assert records, "no access log line was produced"
+    text = " ".join(r.getMessage() + json.dumps(getattr(r, "__dict__", {}), default=str) for r in records)
     assert "SuperSecretPassword1" not in text and "x@x.id" not in text and "/api/v1/auth/login" in text
 
 

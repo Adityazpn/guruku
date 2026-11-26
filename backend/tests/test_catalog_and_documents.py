@@ -31,7 +31,10 @@ def instance(sc):
         return {k: instance(v) for k, v in sc["properties"].items()}
     if t == "array":
         return [instance(sc["items"]) for _ in range(max(sc.get("minItems", 1), 1))]
-    return max(sc.get("minimum", 1), 1) if t == "integer" else "Teks contoh bahasa Indonesia"
+    if t == "integer":
+        return max(sc.get("minimum", 1), 1)
+    text = "Teks contoh bahasa Indonesia"
+    return (text + " ") * (sc.get("minLength", 0) // len(text) + 1) if sc.get("minLength", 0) > len(text) else text
 
 
 def sample(slug):
@@ -54,11 +57,14 @@ def test_every_tool_is_coherent_and_exports_complete_documents(t):
     # schemas are valid, prompt compiles and renders for a typical teacher input
     jsonschema.Draft202012Validator.check_schema(t["input"])
     jsonschema.Draft202012Validator.check_schema(t["output"])
-    inp = {**BASE, **EXTRA.get(slug, {})}
+    props, req = t["input"]["properties"], t["input"].get("required", [])
+    inp = {k: instance(props[k]) for k in req}  # every required field, valid by construction
+    inp.update({k: v for k, v in BASE.items() if k in props})  # realistic teacher values where the tool has those fields
+    inp.update(EXTRA.get(slug, {}))
     jsonschema.validate(inp, t["input"])
     env = SandboxedEnvironment(undefined=StrictUndefined)
-    prompt = env.from_string(tmpl(t["task"], t["output"], t["rules"])).render(input=inp, input_json=json.dumps(inp))
-    assert "Getaran dan Gelombang" in prompt and "JSON" in prompt
+    prompt = env.from_string(tmpl(t["task"], t["output"], t["rules"], t["input"])).render(input=inp, input_json=json.dumps(inp))
+    assert ("Getaran dan Gelombang" in prompt or "topic" not in props) and "JSON" in prompt
     # a valid output passes schema + completeness check, and both exports contain its content
     out = sample(slug)
     jsonschema.validate(out, t["output"])

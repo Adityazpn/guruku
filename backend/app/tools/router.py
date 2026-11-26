@@ -38,7 +38,7 @@ def _guard(fn, *a, **kw):
 
 @router.get("/tools", response_model=list[ToolOut])
 def list_tools(category: str | None = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    q = select(AiTool).where(AiTool.is_active.is_(True)).order_by(AiTool.sort, AiTool.name)
+    q = select(AiTool).where(AiTool.is_active.is_(True), AiTool.hidden.is_(False)).order_by(AiTool.sort, AiTool.name)
     if category:
         q = q.where(AiTool.category == category)
     return [ToolOut(slug=t.slug, name=t.name, category=t.category, description=t.description) for t in db.scalars(q)]
@@ -48,7 +48,7 @@ def list_tools(category: str | None = None, user: User = Depends(get_current_use
 def get_tool(slug: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     t = _tool(db, slug)
     return ToolDetail(slug=t.slug, name=t.name, category=t.category, description=t.description,
-                      input_schema=t.input_schema)
+                      input_schema=t.input_schema, sensitive=t.sensitive, requires_subscription=t.requires_subscription)
 
 
 @router.post("/tools/{slug}/estimate", response_model=EstimateOut)
@@ -79,7 +79,12 @@ def _out(db: Session, r: AiRequest, slug: str) -> RequestOut:
     from app.documents.models import Document
 
     doc_id = db.scalar(select(Document.id).where(Document.request_id == r.id)) if r.status == "succeeded" else None
-    return RequestOut(document_id=str(doc_id) if doc_id else None, id=str(r.id), tool_slug=slug, status=r.status, output=r.output, error_code=r.error_code,
+    out = r.output
+    if out and r.anon_map_enc:
+        from app.privacy import anonymizer
+
+        out = anonymizer.restore(out, anonymizer.unseal(r.anon_map_enc))
+    return RequestOut(document_id=str(doc_id) if doc_id else None, id=str(r.id), tool_slug=slug, status=r.status, output=out, error_code=r.error_code,
                       credits_reserved=r.credits_reserved, credits_charged=r.credits_charged,
                       created_at=r.created_at, finished_at=r.finished_at)
 

@@ -21,6 +21,7 @@ celery_app.conf.update(
     beat_schedule={
         "sweep-credit-reservations": {"task": "credits.sweep_reservations", "schedule": 60.0},
         "expire-credit-buckets": {"task": "credits.expire_buckets", "schedule": 3600.0},
+        "student-data-retention": {"task": "privacy.purge", "schedule": 86400.0},
         "subscription-tick": {"task": "subscriptions.tick", "schedule": 900.0},
         "recover-stuck-ai-requests": {"task": "ai.recover_stuck", "schedule": 120.0},
     },
@@ -74,3 +75,13 @@ def subscription_tick() -> dict:
 
     with _session() as db:
         return service.tick(db)
+
+
+@celery_app.task(name="privacy.purge")
+def purge_student_data() -> int:
+    from app.privacy import service
+
+    with _session() as db:
+        n = service.purge_request_data(db, older_than_days=service.retention_days(db))
+        db.commit()
+        return n

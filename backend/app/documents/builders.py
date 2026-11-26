@@ -127,6 +127,38 @@ BUILDERS: dict[str, Callable[[dict, dict], Doc]] = {
     "soal-pilihan-ganda": build_pg, "soal-esai": build_esai, "rubrik-penilaian": build_rubrik}
 
 
+SENSITIVE_SLUGS = {"analisis-kesulitan-belajar", "rekomendasi-pembelajaran", "laporan-perkembangan-siswa"}
+ADVISORY = ("Dokumen ini adalah SARAN yang dihasilkan AI untuk membantu pertimbangan guru. Bukan diagnosis medis atau psikologis dan bukan dokumen resmi. "
+            "Berisi data siswa: simpan dengan aman dan jangan dibagikan tanpa dasar yang sah.")
+
+
+def build_surat(inp, o):
+    b = [_p(f"Nomor\t: {o['nomor']}"), _p(f"Lampiran\t: {o['lampiran']}"), _p(f"Perihal\t: {o['perihal']}"), _p(f"Kepada Yth.\n{o['tujuan']}"),
+         _p(o["pembuka"]), *[_p(x) for x in o["isi"]], _p(o["penutup"]), _p(f"Hormat kami,\n\n\n{o['penandatangan']}")]
+    return Doc(f"Surat: {o['perihal']}", [], b)
+
+
+def build_jurnal(inp, o):
+    rows = [["Pertemuan", "Materi", "Kegiatan", "Capaian", "Catatan"]] + [[str(e["pertemuan"]), e["materi"], e["kegiatan"], e["capaian"], e["catatan"]] for e in o["entri"]]
+    return Doc("Jurnal Mengajar", _meta(inp), [_h("Jurnal Mengajar", 1), Block("table", rows=rows)])
+
+
+def build_slides(inp, o):
+    blocks = [_h(o["judul"], 1)]
+    for n, sl in enumerate(o["slide"], 1):
+        blocks += [_h(f"Slide {n}: {sl['judul']}", 2), _ul(sl["poin"]), _p(f"Catatan pembicara: {sl['catatan_pembicara']}")]
+    return Doc(o["judul"], _meta(inp), blocks)
+
+
+BUILDERS.update({"surat-resmi-sekolah": build_surat, "jurnal-mengajar": build_jurnal, "konten-presentasi": build_slides})
+
+
 def build(slug: str, title: str, inp: dict, out: dict) -> Doc:
     fn = BUILDERS.get(slug)
-    return fn(inp, out) if fn else build_generic(title, inp, out)
+    doc = fn(inp, {k: v for k, v in out.items() if k != "_safety"}) if fn else build_generic(title, inp, {k: v for k, v in out.items() if k != "_safety"})
+    if slug in SENSITIVE_SLUGS:
+        doc.footer = ADVISORY
+        doc.blocks.insert(0, _p("SARAN, BUKAN DIAGNOSIS. Gunakan sebagai bahan pertimbangan guru."))
+    if out.get("_safety"):
+        doc.blocks.insert(0, _p(out["_safety"]))
+    return doc

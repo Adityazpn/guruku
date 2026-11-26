@@ -17,6 +17,7 @@ from app.documents.builders import build
 from app.documents.models import Document, DocumentDownload, DocumentVersion
 from app.documents.render_docx import render_docx
 from app.documents.render_pdf import render_pdf
+from app.documents.render_pptx import render_pptx
 from app.users.models import User
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -133,16 +134,17 @@ def restore(doc_id: uuid.UUID, body: RestoreIn, user: User = Depends(get_current
 
 
 @router.get("/{doc_id}/export")
-def export(doc_id: uuid.UUID, format: str = Query("docx", pattern="^(docx|pdf)$"), version: int | None = Query(None, ge=1),
+def export(doc_id: uuid.UUID, format: str = Query("docx", pattern="^(docx|pdf|pptx)$"), version: int | None = Query(None, ge=1),
            user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     d = _own(db, user, doc_id)
     v = _version(db, d, version) if version else service.latest(db, d.id)
     t = _tool(db, d.tool_slug)
     doc = build(d.tool_slug, t.name if t else d.tool_slug, d.input, v.content)
-    data = render_docx(doc) if format == "docx" else render_pdf(doc)
+    data = {"docx": render_docx, "pdf": render_pdf, "pptx": render_pptx}[format](doc)
     db.add(DocumentDownload(document_id=d.id, version_no=v.version_no, user_id=user.id, format=format))
     db.commit()
-    mime = "application/pdf" if format == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    mime = {"pdf": "application/pdf", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}[format]
     return Response(data, media_type=mime, headers={"Content-Disposition": f'attachment; filename="{d.tool_slug}-{str(d.id)[:8]}-v{v.version_no}.{format}"'})
 
 

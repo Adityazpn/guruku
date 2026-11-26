@@ -36,6 +36,9 @@ Constraints/indexes: unique(code)
 | est_output_tokens | INTEGER | no |  |
 | max_output_tokens | INTEGER | no |  |
 | sort | INTEGER | no |  |
+| sensitive | BOOLEAN | no |  |
+| requires_subscription | BOOLEAN | no |  |
+| hidden | BOOLEAN | no |  |
 | id | CHAR(32) | no | PK |
 | created_at | DATETIME | no |  |
 | updated_at | DATETIME | no |  |
@@ -117,6 +120,19 @@ Constraints/indexes: unique(key)
 | created_at | DATETIME | no |  |
 | updated_at | DATETIME | no |  |
 
+## `library_categories`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| slug | VARCHAR(60) | no | unique |
+| name | VARCHAR(120) | no |  |
+| sort | INTEGER | no |  |
+| id | CHAR(32) | no | PK |
+| created_at | DATETIME | no |  |
+| updated_at | DATETIME | no |  |
+
+Constraints/indexes: unique(slug)
+
 ## `payment_webhooks`
 
 | column | type | null | key / constraint |
@@ -177,6 +193,16 @@ Constraints/indexes: unique(code)
 | created_at | DATETIME | no |  |
 | updated_at | DATETIME | no |  |
 
+## `ai_conversations`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| user_id | CHAR(32) | no | FK → users.id |
+| title | VARCHAR(120) | no |  |
+| id | CHAR(32) | no | PK |
+| created_at | DATETIME | no |  |
+| updated_at | DATETIME | no |  |
+
 ## `ai_models`
 
 | column | type | null | key / constraint |
@@ -223,6 +249,19 @@ Constraints/indexes: unique(tool_id, version)
 | created_at | DATETIME | no |  |
 | updated_at | DATETIME | no |  |
 
+## `consents`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| user_id | CHAR(32) | no | FK → users.id |
+| type | VARCHAR(30) | no |  |
+| version | VARCHAR(20) | no |  |
+| granted_at | DATETIME | no |  |
+| revoked_at | DATETIME | yes |  |
+| id | CHAR(32) | no | PK |
+| created_at | DATETIME | no |  |
+| updated_at | DATETIME | no |  |
+
 ## `credit_wallets`
 
 | column | type | null | key / constraint |
@@ -248,6 +287,23 @@ Constraints/indexes: unique(user_id)
 | updated_at | DATETIME | no |  |
 
 Constraints/indexes: unique(token_hash)
+
+## `library_items`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| category_id | CHAR(32) | no | FK → library_categories.id |
+| title | VARCHAR(200) | no |  |
+| description | TEXT | no |  |
+| level | VARCHAR(20) | no |  |
+| subject | VARCHAR(100) | no |  |
+| tags | JSON | no |  |
+| access | VARCHAR(10) | no |  |
+| is_sample | BOOLEAN | no |  |
+| status | VARCHAR(10) | no |  |
+| id | CHAR(32) | no | PK |
+| created_at | DATETIME | no |  |
+| updated_at | DATETIME | no |  |
 
 ## `payment_orders`
 
@@ -347,6 +403,17 @@ Constraints/indexes: unique(user_id, role_id)
 
 Constraints/indexes: unique(refresh_token_hash)
 
+## `ai_messages`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| id | CHAR(32) | no | PK |
+| conversation_id | CHAR(32) | no | FK → ai_conversations.id |
+| role | VARCHAR(10) | no |  |
+| content | TEXT | no |  |
+| request_id | CHAR(32) | yes |  |
+| created_at | DATETIME | no |  |
+
 ## `ai_model_pricing`
 
 | column | type | null | key / constraint |
@@ -423,6 +490,22 @@ Constraints/indexes: unique(idempotency_key)
 
 Constraints/indexes: unique(order_id); unique(number)
 
+## `library_files`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| id | CHAR(32) | no | PK |
+| item_id | CHAR(32) | no | FK → library_items.id |
+| version_no | INTEGER | no |  |
+| storage_key | VARCHAR(200) | no |  |
+| filename | VARCHAR(200) | no |  |
+| mime | VARCHAR(120) | no |  |
+| size | INTEGER | no |  |
+| checksum | VARCHAR(64) | no |  |
+| created_at | DATETIME | no |  |
+
+Constraints/indexes: unique(item_id, version_no)
+
 ## `payments`
 
 | column | type | null | key / constraint |
@@ -457,6 +540,7 @@ Constraints/indexes: unique(gateway, gateway_txn_id)
 | credits_reserved | NUMERIC(12, 2) | no |  |
 | credits_charged | NUMERIC(12, 2) | yes |  |
 | attempts | INTEGER | no |  |
+| anon_map_enc | VARCHAR(4000) | yes |  |
 | target_document_id | CHAR(32) | yes |  |
 | started_at | DATETIME | yes |  |
 | finished_at | DATETIME | yes |  |
@@ -509,6 +593,16 @@ Constraints/indexes: unique(source_type, source_id)
 | created_at | DATETIME | no |  |
 
 Constraints/indexes: unique(idempotency_key)
+
+## `library_access_logs`
+
+| column | type | null | key / constraint |
+|---|---|---|---|
+| id | CHAR(32) | no | PK |
+| item_id | CHAR(32) | no | FK → library_items.id |
+| file_id | CHAR(32) | yes | FK → library_files.id |
+| user_id | CHAR(32) | no | FK → users.id |
+| created_at | DATETIME | no |  |
 
 ## `ai_cost_tracking`
 

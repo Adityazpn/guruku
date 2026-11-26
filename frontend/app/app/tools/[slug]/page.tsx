@@ -6,7 +6,7 @@ import { Notice } from "@/components/ui/AuthCard";
 import { OutputView } from "@/components/ui/OutputView";
 import { ToolForm } from "@/components/ui/ToolForm";
 import { toPayload, validateForm } from "@/lib/form";
-import { api, errorMessage, messageFor } from "@/services/api";
+import { ApiError, api, errorMessage, messageFor, privacy } from "@/services/api";
 import type { AiRequest, Estimate, ToolDetail } from "@/types/api";
 
 export default function ToolPage() {
@@ -18,6 +18,8 @@ export default function ToolPage() {
   const [err, setErr] = useState<string | null>(null);
   const [req, setReq] = useState<AiRequest | null>(null);
   const [busy, setBusy] = useState(false);
+  const [consent, setConsent] = useState<{ text: string } | null>(null);
+  const [agreed, setAgreed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   // one key per "attempt"; reused on network retries of the same click, renewed for each new generation
   const keyRef = useRef<string>(crypto.randomUUID());
@@ -49,7 +51,11 @@ export default function ToolPage() {
       keyRef.current = crypto.randomUUID();
       setReq(r);
       poll(r.id);
-    } catch (x) { setBusy(false); setErr(errorMessage(x)); }
+    } catch (x) {
+      setBusy(false);
+      if (x instanceof ApiError && x.code === "consent_required") { setConsent(await privacy.consent()); return; }
+      setErr(errorMessage(x));
+    }
   }
 
   async function download(format: "docx" | "pdf") {
@@ -83,6 +89,21 @@ export default function ToolPage() {
           )}
         </div>
       </form>
+      {tool.sensitive && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          Alat ini mengolah <b>data siswa</b>. Gunakan alias atau nama depan seperlunya. Nama dan pengenal pribadi disamarkan sebelum dikirim ke penyedia AI, dan keluaran hanya <b>saran, bukan diagnosis</b>.
+        </div>
+      )}
+      {consent && (
+        <section className="mt-4 rounded-xl border border-slate-300 p-4" aria-label="Persetujuan data siswa">
+          <h2 className="font-semibold text-navy">Persetujuan penggunaan data siswa</h2>
+          <p className="text-sm mt-2">{consent.text}</p>
+          <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> Saya memahami dan menyetujui.</label>
+          <button className="mt-3 rounded-lg bg-navy text-white px-4 py-2 text-sm disabled:opacity-50" disabled={!agreed}
+            onClick={() => privacy.give().then(() => { setConsent(null); setErr(null); }).catch((e) => setErr(errorMessage(e)))}>Setuju dan lanjutkan</button>
+          <p className="text-xs text-slate-500 mt-2">Anda dapat mencabut persetujuan dan menghapus data siswa kapan saja dari halaman Profil.</p>
+        </section>
+      )}
       {err && <div className="mt-4"><Notice kind="error">{err}</Notice></div>}
       {busy && !failed && <p className="mt-6 text-sm text-slate-600" role="status">AI sedang menyusun dokumen… biasanya kurang dari satu menit.</p>}
       {failed && <div className="mt-6"><Notice kind="error">{messageFor(req?.error_code ?? null)}</Notice></div>}

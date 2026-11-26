@@ -62,6 +62,7 @@ class ToolPatch(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=150)
     description: str | None = Field(default=None, max_length=500)
     is_active: bool | None = None
+    requires_subscription: bool | None = None
     est_input_tokens: int | None = Field(default=None, ge=1, le=200000)
     est_output_tokens: int | None = Field(default=None, ge=1, le=200000)
     max_output_tokens: int | None = Field(default=None, ge=256, le=200000)

@@ -43,6 +43,9 @@ const MESSAGES: Record<string, string> = {
   file_size_invalid: "Ukuran berkas tidak valid (maks. 25 MB).",
   upload_a_file_before_publishing: "Unggah berkas sebelum mempublikasikan.",
   unknown_category: "Kategori tidak dikenal.",
+  consent_required: "Alat ini memproses data siswa. Setujui persyaratan penggunaan data siswa terlebih dahulu.",
+  subscription_required: "Alat ini khusus pelanggan. Berlangganan untuk menggunakannya.",
+  server_misconfigured: "Layanan belum dikonfigurasi dengan benar. Hubungi admin.",
   invalid_token: "Tautan tidak valid atau sudah kedaluwarsa.",
   rate_limited: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 };
@@ -139,7 +142,7 @@ export const docsApi = {
   duplicate: (id: string) => send<DocFull>("POST", `/documents/${id}/duplicate`),
   versions: (id: string) => authed<DocVersion[]>(`/documents/${id}/versions`),
   restore: (id: string, version: number) => send<DocFull>("POST", `/documents/${id}/restore`, { version }),
-  export: (id: string, format: "docx" | "pdf", version?: number) => authedBlob(`/documents/${id}/export?format=${format}${version ? `&version=${version}` : ""}`),
+  export: (id: string, format: "docx" | "pdf" | "pptx", version?: number) => authedBlob(`/documents/${id}/export?format=${format}${version ? `&version=${version}` : ""}`),
   regenerate: (id: string, key: string) => authed<{ id: string; status: string }>(`/documents/${id}/regenerate`, { method: "POST", headers: { "Idempotency-Key": key } }),
 };
 
@@ -160,6 +163,23 @@ export const lib = {
     if (r.status === 401 && (await refreshSession())) r = await go();
     return parse<LibItem>(r);
   },
+};
+
+export const assistantApi = {
+  list: () => authed<{ id: string; title: string }[]>("/assistant/conversations"),
+  create: () => send<{ id: string; title: string }>("POST", "/assistant/conversations"),
+  get: (id: string) => authed<{ id: string; title: string; messages: { id: string; role: "user" | "assistant"; content: string; request_id: string | null }[] }>(`/assistant/conversations/${id}`),
+  rename: (id: string, title: string) => send("PATCH", `/assistant/conversations/${id}`, { title }),
+  remove: (id: string) => authed<void>(`/assistant/conversations/${id}`, { method: "DELETE" }),
+  send: (id: string, content: string, key: string) =>
+    authed<{ request_id: string; status: string }>(`/assistant/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ content }), headers: { "Idempotency-Key": key } }),
+};
+
+export const privacy = {
+  consent: () => authed<{ student_data: boolean; text: string }>("/me/consents"),
+  give: () => send("POST", "/me/consents", { type: "student_data" }),
+  revoke: () => authed<void>("/me/consents/student_data", { method: "DELETE" }),
+  erase: () => send<{ documents: number; requests: number }>("POST", "/me/student-data/delete"),
 };
 
 export const billing = {
