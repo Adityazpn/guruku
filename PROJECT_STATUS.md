@@ -17,15 +17,17 @@ Brand Nalar Edu (pending TM/domain check) · managed Postgres, ID/SG region · i
 ## Phase 2 progress
 - [x] backend skeleton: module dirs, config (env-only secrets), /api/v1/health, pytest (1 passing), Dockerfile
 - [x] docker-compose (db, redis, minio, backend), .env.example, .gitignore
-- [ ] Alembic + base models (users, roles, sessions)
-- [ ] Auth (Argon2id, JWT + refresh rotation), RBAC
+- [x] Alembic + models (users, roles, user_roles, user_sessions); migration 0001 verified up/down on SQLite only
+- [x] Auth: register/login/refresh/logout/me, Argon2id, 15-min JWT, rotating refresh cookie with reuse detection, lockout (5 fails/15 min), DB-checked RBAC dependency
 - [ ] Frontend (Next.js) shell, CI, Celery worker
 
 ## Pending
 Phases 3–10; remaining Phase 2 items above.
 
-## Known bugs
-None (no code).
+## Known bugs / gaps
+- Migration not yet run on PostgreSQL (none available here); run `alembic upgrade head` against Postgres in CI.
+- No CSRF token yet (cookie is SameSite=Lax, path-scoped to /auth); no email verification, password reset, rate limiting, MFA yet.
+- Tests use SQLite; row-locking behaviour (FOR UPDATE) needs Postgres integration tests.
 
 ## Architecture decisions
 See SPEC_02 §8 (AD-1…AD-11).
@@ -34,10 +36,10 @@ See SPEC_02 §8 (AD-1…AD-11).
 None created.
 
 ## Testing status
-Backend: 1 test (health) passes locally. Docker Compose NOT yet run. Nothing else is claimed to work.
+Backend: 10 tests pass locally (SQLite in-memory): health, auth flows, lockout, refresh reuse, RBAC. Docker Compose NOT yet run. Nothing else is claimed to work.
 
 ## Deployment status
 Not deployed. No credentials configured (OpenAI, Midtrans, Xendit, cloud, domain all pending owner).
 
 ## Next development task
-After approval + answers to the unresolved decisions list (SPEC_03, end): Alembic + user/role/session models, then auth/RBAC with tests.
+After approval + answers to the unresolved decisions list (SPEC_03, end): Email verification + password reset, rate limiting, profiles/preferences, then Celery worker, CI (Postgres service) and Next.js shell.
