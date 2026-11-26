@@ -430,3 +430,36 @@ def audit_logs(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=2
                                                       "ip": a.ip, "created_at": a.created_at} for a in rows]}
 
 
+
+
+@router.get("/system")
+def system_health(db: Session = Depends(get_db)):
+    """Operational snapshot for the admin: is anything stuck, failing or silently losing money?"""
+    from app.payments.models import PaymentOrder, PaymentWebhook
+
+    now = utcnow()
+    n = lambda q: db.scalar(q) or 0  # noqa: E731
+    stats = {
+        "ai_queued": n(select(func.count()).select_from(AiRequest).where(AiRequest.status == "queued")),
+        "ai_queued_over_5min": n(select(func.count()).select_from(AiRequest).where(AiRequest.status == "queued", AiRequest.created_at <= now - timedelta(minutes=5))),
+        "ai_running_over_15min": n(select(func.count()).select_from(AiRequest).where(AiRequest.status == "running", AiRequest.started_at <= now - timedelta(minutes=15))),
+        "ai_failed_last_hour": n(select(func.count()).select_from(AiRequest).where(AiRequest.status == "failed", AiRequest.created_at >= now - timedelta(hours=1))),
+        "ai_total_last_hour": n(select(func.count()).select_from(AiRequest).where(AiRequest.created_at >= now - timedelta(hours=1))),
+        "webhook_problems_24h": n(select(func.count()).select_from(PaymentWebhook).where(
+            PaymentWebhook.received_at >= now - timedelta(hours=24),
+            (PaymentWebhook.process_status.like("error:%")) | (PaymentWebhook.process_status.like("rejected:%")))),
+        "orders_pending_over_1day": n(select(func.count()).select_from(PaymentOrder).where(PaymentOrder.status == "pending", PaymentOrder.created_at <= now - timedelta(days=1))),
+        "invalid_provider_keys": n(select(func.count()).select_from(AiProviderCredential).where(AiProviderCredential.status == "invalid")),
+    }
+    alerts = []
+    if stats["ai_queued_over_5min"]:
+        alerts.append("Ada permintaan AI antre >5 menit: periksa worker Celery.")
+    if stats["ai_running_over_15min"]:
+        alerts.append("Ada permintaan AI 'running' >15 menit: worker mungkin mati.")
+    if stats["ai_total_last_hour"] >= 10 and stats["ai_failed_last_hour"] / stats["ai_total_last_hour"] > 0.3:
+        alerts.append("Lebih dari 30% generate gagal dalam 1 jam terakhir.")
+    if stats["webhook_problems_24h"]:
+        alerts.append("Ada webhook pembayaran bermasalah/ditolak dalam 24 jam: lihat Pembayaran > Webhook.")
+    if stats["invalid_provider_keys"]:
+        alerts.append("API key penyedia AI ditolak (invalid): ganti key di Provider AI.")
+    return {"stats": stats, "alerts": alerts}
