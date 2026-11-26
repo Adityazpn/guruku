@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.auth.models
+import app.credits.models
 import app.users.models
 from app.core import email as mailer
 from app.core import rate_limit as rl
@@ -32,3 +33,38 @@ def client(db_session):
     app.dependency_overrides[get_db] = override
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+# ---------- PostgreSQL fixtures (credit ledger needs real row locks and triggers) ----------
+import os  # noqa: E402
+
+PG_URL = os.environ.get("TEST_DATABASE_URL")
+
+
+@pytest.fixture(scope="session")
+def pg_engine():
+    if not PG_URL:
+        pytest.skip("TEST_DATABASE_URL not set; PostgreSQL tests skipped")
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config("alembic.ini")
+    cfg.attributes["url"] = PG_URL
+    command.downgrade(cfg, "base")
+    command.upgrade(cfg, "head")  # real migrations => triggers exist
+    engine = create_engine(PG_URL, pool_size=40, max_overflow=20)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def pg(pg_engine):
+    """Returns a session factory; every table is emptied before each test."""
+    from sqlalchemy import text
+
+    with pg_engine.begin() as c:
+        names = [t.name for t in Base.metadata.sorted_tables]
+        c.execute(text("ALTER TABLE credit_transactions DISABLE TRIGGER credit_ledger_no_update"))
+        c.execute(text("TRUNCATE " + ", ".join(names) + " RESTART IDENTITY CASCADE"))
+        c.execute(text("ALTER TABLE credit_transactions ENABLE TRIGGER credit_ledger_no_update"))
+    return sessionmaker(pg_engine, expire_on_commit=False)

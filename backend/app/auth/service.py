@@ -15,6 +15,7 @@ from app.core.security import (
     new_refresh_token,
     verify_password,
 )
+from app.credits import service as credits
 from app.users.models import Role, User, UserRole
 
 MAX_FAILED = 5
@@ -52,6 +53,7 @@ def register(db: Session, email: str, password: str, full_name: str) -> User:
     db.add(user)
     db.flush()
     user.roles.append(UserRole(user_id=user.id, role=get_or_create_role(db, "user")))
+    credits.grant_trial(db, user.id)
     db.commit()
     send_verification(db, user)
     return user
